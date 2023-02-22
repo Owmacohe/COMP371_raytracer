@@ -1,0 +1,3 @@
+/Users/ohellum/Documents/GitHub/COMP371_raytracer/cmake-build-debug/CMakeFiles/raytracer.dir
+/Users/ohellum/Documents/GitHub/COMP371_raytracer/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/ohellum/Documents/GitHub/COMP371_raytracer/cmake-build-debug/CMakeFiles/rebuild_cache.dir
