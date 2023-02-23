@@ -12,7 +12,6 @@ RayTracer::RayTracer(json js) : j(new json(js)) { }
 RayTracer::~RayTracer() {
     // TODO: figure out why these deletes are causing errors...
 
-    /*
     delete j;
     j = NULL;
 
@@ -38,13 +37,13 @@ RayTracer::~RayTracer() {
     }
 
     for (Light *l : lights) {
-        if (l->getType() == "Point") {
+        if (l->get_type() == "Point") {
             Point *temp = dynamic_cast<Point*>(l);
 
             delete temp;
             temp = NULL;
         }
-        else if (l->getType() == "Area") {
+        else if (l->get_type() == "Area") {
             Area *temp = dynamic_cast<Area*>(l);
 
             delete temp;
@@ -56,10 +55,9 @@ RayTracer::~RayTracer() {
     output = NULL;
 
     cout << "delete RAYTRACER" << endl;
-    */
 }
 
-/// Main method to actually run the RayCaster
+/// Main method to actually run the RayTracer
 void RayTracer::run() {
     cout << endl << "Scene contains:" << endl;
 
@@ -68,9 +66,9 @@ void RayTracer::run() {
     output = parse_output();
 
     for (Shape *s : shapes)
-        output->getImage()->raycast(output->getCamera(), s, true, false, true);
+        output->get_image()->raycast(output->get_camera(), s, true, false, true);
 
-    cout << endl << "Number of hits: " << output->getImage()->getNumberOfHits() << endl << endl;
+    cout << endl << "Number of hits: " << output->get_image()->get_number_of_hits() << endl << endl;
 }
 
 /// Parser for the geometry elements
@@ -183,8 +181,7 @@ Output *RayTracer::parse_output() {
         cam = new Camera(
             new Vector3<float>((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
             new Vector3<float>((*itr)["lookat"][0], (*itr)["lookat"][1], (*itr)["lookat"][2]),
-            new Vector3<float>((*itr)["up"][0], (*itr)["up"][1], (*itr)["up"][2]),
-            img->getFOV()); // TODO: should I set the focal length this way???
+            new Vector3<float>((*itr)["up"][0], (*itr)["up"][1], (*itr)["up"][2]));
     }
 
     return new Output(img, cam);
@@ -198,21 +195,19 @@ Output *RayTracer::parse_output() {
 /// \param o Origin of the camera
 /// \param l LookAt vector of the camera
 /// \param u Up vector of the camera
-/// \param f Focal length of the camera
-Camera::Camera(Vector3<float> *o, Vector3<float> *l, Vector3<float> *u, float f) :
+Camera::Camera(Vector3<float> *o, Vector3<float> *l, Vector3<float> *u) :
     origin(o),
-    lookAt(l),
+    look_at(l),
     up(u),
-    side(new Vector3<float>(l->cross(*u))),
-    focalLength(f) { }
+    side(new Vector3<float>(l->cross(*u).normalized())) { }
 
 /// Camera destructor
 Camera::~Camera() {
     delete origin;
     origin = NULL;
 
-    delete lookAt;
-    lookAt = NULL;
+    delete look_at;
+    look_at = NULL;
 
     delete up;
     up = NULL;
@@ -230,26 +225,23 @@ Camera::~Camera() {
 ostream& operator<<(ostream &strm, const Camera &c) {
     return strm << "CAMERA" << endl
                 << "\tOrigin: " << c.origin->x() << " " << c.origin->y() << " " << c.origin->z() << " " << endl
-                << "\tLook-At: " << c.lookAt->x() << " " << c.lookAt->y() << " " << c.lookAt->z() << " " << endl
+                << "\tLook-At: " << c.look_at->x() << " " << c.look_at->y() << " " << c.look_at->z() << " " << endl
                 << "\tUp: " << c.up->x() << " " << c.up->y() << " " << c.up->z() << " " << endl
                 << "\tSide: " << c.side->x() << " " << c.side->y() << " " << c.side->z();
 }
 
 /// Origin getter
 /// \return Origin of the camera
-Vector3<float> *Camera::getOrigin() { return origin; }
+Vector3<float> *Camera::get_origin() { return origin; }
 /// LookAt vector getter
 /// \return LookAt vector of the camera
-Vector3<float> *Camera::getLookAt() { return lookAt; }
+Vector3<float> *Camera::get_look_at() { return look_at; }
 /// Up vector getter
 /// \return Up vector of the camera
-Vector3<float> *Camera::getUp() { return up; }
+Vector3<float> *Camera::get_up() { return up; }
 /// Side vector getter
 /// \return Side vector of the camera
-Vector3<float> *Camera::getSide() { return side; }
-/// Focal length getter
-/// \return Focal length of the camera
-float Camera::getFocalLength() { return focalLength; }
+Vector3<float> *Camera::get_side() { return side; }
 
 
 
@@ -262,7 +254,7 @@ float Camera::getFocalLength() { return focalLength; }
 /// \param f FOV of the image
 /// \param amb Ambient colour of the image
 /// \param back Background colour of the image
-Image::Image(string n, float w, float h, float f, Vector3<float> *amb, Vector3<float> *back) :
+Image::Image(string n, int w, int h, float f, Vector3<float> *amb, Vector3<float> *back) :
     name(n),
     width(w),
     height(h),
@@ -304,29 +296,32 @@ ostream& operator<<(ostream &strm, const Image &i) {
 
 /// Name getter
 /// \return Name of the Image
-string Image::getName() { return name; }
+string Image::get_name() { return name; }
 /// Width getter
 /// \return Width of the Image
-float Image::getWidth() const { return width; }
+int Image::get_width() const { return width; }
 /// Height getter
 /// \return Height of the Image
-float Image::getHeight() const { return height; }
+int Image::get_height() const { return height; }
 /// FOV getter
 /// \return FOV of the Image
-float Image::getFOV() const { return FOV; }
-/// FOV delta getter
-/// \return FOV delta of the Image
-float Image::getDelta() const { return (2 * tan(FOV / 2)) / height; }
+float Image::get_FOV() const { return FOV; }
+/// Alpha getter
+/// \return Alpha of the Image
+float Image::get_alpha() const { return tan((FOV / 2) * (M_PI / 180)); }
+/// Pixel size getter
+/// \return Pixel size of the Image
+float Image::get_pixel_size() const { return (2 * get_alpha()) / height; }
 /// Number of hits getter
 /// \return Number of total hits in the image
-int Image::getNumberOfHits() { return numberOfHits; }
+int Image::get_number_of_hits() { return number_of_hits; }
 
 /// Ambient colour getter
 /// \return Ambient colour of the Image
-Vector3<float> *Image::getAmbient() { return ambient; }
+Vector3<float> *Image::get_ambient() { return ambient; }
 /// Background colour getter
 /// \return Background colour of the Image
-Vector3<float> *Image::getBackground() { return background; }
+Vector3<float> *Image::get_background() { return background; }
 
 /// Method to raycast into the scene in the hopes of hitting a particular shape
 /// \param cam The camera from which to cast the rays
@@ -337,41 +332,41 @@ Vector3<float> *Image::getBackground() { return background; }
 void Image::raycast(Camera *cam, Shape *sha, bool save, bool verbose, bool onlyDisplayHits) {
     int count = 0;
 
+    float aspect = width / height;
+
+    Vector3<float> base =
+        *cam->get_origin() + *cam->get_look_at() +
+        (*cam->get_up() * get_alpha()) -
+        (*cam->get_side() * get_alpha() * aspect);
+
     // Iterating vertically first, then horizontally
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
             count++;
 
-            Ray *ray = new Ray(this, cam, sha, i, j); // Creating and shooting the raycast
+            Ray *ray = new Ray(this, cam, base, sha, i, j); // Creating and shooting the raycast
 
             // Printing the raycast information to the console
-            if (verbose && ((onlyDisplayHits && ray->getDoesHit()) || !onlyDisplayHits)) {
-                cout << "[" << ray->getDoesHit() << "] Raycast " << count << ": " <<
-                    ray->getRaycast()->x() << " " <<
-                    ray->getRaycast()->y() << " " <<
-                    ray->getRaycast()->z() << " " << endl;
+            if (verbose && ((onlyDisplayHits && ray->get_does_hit()) || !onlyDisplayHits)) {
+                cout << "[" << ray->get_does_hit() << "] Raycast " << count << ": " <<
+                    ray->get_raycast()->x() << " " <<
+                    ray->get_raycast()->y() << " " <<
+                    ray->get_raycast()->z() << " " << endl;
             }
 
             // Saving the pixel information to the PPM buffer if it does hit
-            if (ray->getDoesHit()) {
-                numberOfHits++;
+            if (ray->get_does_hit()) {
+                number_of_hits++;
 
                 // TODO: this should be projective (not orthographic) in the future
                 if (save) {
                     int index = (3 * j * width) + (3 * i);
 
-                    /*
-                    int y = ray->getHit()->y() + (height / 2);
-                    int x = ray->getHit()->x() + (width / 2);
+                    Vector3<float> intensity = ray->get_intensity(); // TODO: implement this below
 
-                    int index = (3 * y * width) + (3 * x);
-                    */
-
-                    Vector3<float> intensity = ray->getIntensity(); // TODO: implement this below
-
-                    buffer->at(index + 0) = sha->getAmbientColour()->x();
-                    buffer->at(index + 1) = sha->getAmbientColour()->y();
-                    buffer->at(index + 2) = sha->getAmbientColour()->z();
+                    buffer->at(index + 0) = sha->get_ambient_colour()->x();
+                    buffer->at(index + 1) = sha->get_ambient_colour()->y();
+                    buffer->at(index + 2) = sha->get_ambient_colour()->z();
                 }
             }
 
@@ -387,51 +382,52 @@ void Image::raycast(Camera *cam, Shape *sha, bool save, bool verbose, bool onlyD
 
 /* ### Ray ### */
 
-/// Free method to determine whether a ray is on the right of a line
-/// \param ray The ray to check
-/// \param p1 The first point of the line
-/// \param p2 The second point of the line
-/// \param n The normal of the line
-/// \return Whether the ray is on the right of the line
-bool isOnRight(Vector3<float> *ray, Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *n) {
-    return (*p1 - *p2).cross(*ray - *p2).dot(*n) > 0;
+Vector3<float> getTriangleRaycast(Vector3<float> *o, Vector3<float> *n, Vector3<float> out) {
+    float t = -(o->dot(*n) - 4) / (out.dot(*n));
+    return *o + (out * t);
 }
 
 /// Ray class constructor
 /// \param img Image to raycast into
 /// \param cam Camera to raycast from
+/// \param base Base vector to offset from
 /// \param sha Shape to raycast at
 /// \param x_index Horizontal index of the raycast
 /// \param y_index Vertical index of the raycast
-Ray::Ray(Image *img, Camera *cam, Shape *sha, int x_index, int y_index) {
-    //Vector3<float> x = *cam->getSide() * ((img->getWidth() - (2 * x_index - 1) * img->getDelta()) / 2);
-    //Vector3<float> y = *cam->getUp() * ((img->getHeight() - (2 * y_index - 1) * img->getDelta()) / 2);
-
-    // general raycast formula: O + (l * focal) + (side * index) + (up * index)
-    raycast = new Vector3<float>(
-        *cam->getOrigin() +
-        (*cam->getLookAt() * cam->getFocalLength()) +
-        (*cam->getSide() * (-img->getWidth() / 2 + x_index)) +
-        (*cam->getUp() * (img->getHeight() / 2 - y_index))
-    );
+Ray::Ray(Image *img, Camera *cam, Vector3<float> base, Shape *sha, int x_index, int y_index) {
+    Vector3<float> out =
+        base +
+        (*cam->get_up() * (-y_index * img->get_pixel_size() + (img->get_pixel_size() / 2))) +
+        (*cam->get_side() * (x_index * img->get_pixel_size() + (img->get_pixel_size() / 2)));
 
     // Checking to see which shape we are raycasting at, so we can hit it properly
     if (sha->getType() == "Triangle") {
         Triangle *tri = dynamic_cast<Triangle*>(sha);
 
-        doesHit = hitTriangle(tri);
+        raycast = new Vector3<float>(getTriangleRaycast(cam->get_origin(), tri->get_normal(), out));
 
-        if (doesHit) hit = raycast;
+        does_hit = hit_triangle(tri);
     }
     if (sha->getType() == "Rectangle") {
         Rectangle *pla = dynamic_cast<Rectangle*>(sha);
 
-        doesHit = hitTriangle(pla->getT1()) || hitTriangle(pla->getT2());
+        raycast = new Vector3<float>(getTriangleRaycast(cam->get_origin(), pla->getT1()->get_normal(), out));
+        does_hit = hit_triangle(pla->getT1());
+
+        if (!does_hit) {
+            delete raycast;
+            raycast = NULL;
+
+            raycast = new Vector3<float>(getTriangleRaycast(cam->get_origin(), pla->getT2()->get_normal(), out));
+            does_hit = hit_triangle(pla->getT2());
+        }
     }
     else if (sha->getType() == "Sphere") {
+        raycast = new Vector3<float>(out);
+
         Sphere *sph = dynamic_cast<Sphere*>(sha);
 
-        doesHit = hitSphere(*cam->getOrigin(), sph);
+        does_hit = hit_sphere(cam->get_origin(), sph);
     }
 }
 
@@ -446,16 +442,27 @@ Ray::~Ray() {
     raycast = NULL;
 }
 
+/// Free method to determine whether a ray is on the right of a line
+/// \param ray The ray to check
+/// \param p1 The first point of the line
+/// \param p2 The second point of the line
+/// \param n The normal of the line
+/// \return Whether the ray is on the right of the line
+bool isOnRight(Vector3<float> *ray, Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *n) {
+    return ((*p1 - *p2).cross(*ray - *p2)).dot(*n) > 0;
+}
+
 /// Method to see if the raycast hits a triangle
 /// \param tri Triangle to hit
 /// \return Whether the ray does hit
-bool Ray::hitTriangle(Triangle *tri) {
-    bool ba = isOnRight(raycast, tri->B(), tri->A(), tri->getNormal());
-    bool cb = isOnRight(raycast, tri->C(), tri->B(), tri->getNormal());
-    bool ac = isOnRight(raycast, tri->A(), tri->C(), tri->getNormal());
+bool Ray::hit_triangle(Triangle *tri) {
+    bool ba = isOnRight(raycast, tri->B(), tri->A(), tri->get_normal());
+    bool cb = isOnRight(raycast, tri->C(), tri->B(), tri->get_normal());
+    bool ac = isOnRight(raycast, tri->A(), tri->C(), tri->get_normal());
 
     // Only hits if it's on the same side as all of the triangle's lines
     bool temp = (ba == cb) && (cb == ac);
+
     if (temp) hit = raycast; // TODO: this may not always be correct
 
     return temp;
@@ -465,14 +472,14 @@ bool Ray::hitTriangle(Triangle *tri) {
 /// \param o Origin of the raycast
 /// \param sph Sphere to hit
 /// \return Whether the ray does hit
-bool Ray::hitSphere(Vector3<float> o, Sphere *sph) {
+bool Ray::hit_sphere(Vector3<float> *o, Sphere *sph) {
     Vector3<float> dir = raycast->normalized();
-    Vector3<float> toSphere = o - *sph->getOrigin();
+    Vector3<float> toSphere = *o - *sph->get_origin();
 
     // Getting the components of the quadratic formula
     float a = dir.dot(dir);
     float b = 2 * toSphere.dot(dir);
-    float c = toSphere.dot(toSphere) - (sph->getRadius() * sph->getRadius());
+    float c = toSphere.dot(toSphere) - (sph->get_radius() * sph->get_radius());
 
     // Getting the critical determinant
     float determinant = sqrt((b * b) - 4 * a * c);
@@ -483,27 +490,27 @@ bool Ray::hitSphere(Vector3<float> o, Sphere *sph) {
 
     // TODO: I don't think this is accurate
     // Finding which root is closer (the hit which will be displayed)
-    hit = new Vector3<float>(o + dir * (root1 < root2 ? root1 : root2));
+    hit = new Vector3<float>(*o + dir * (root1 < root2 ? root1 : root2));
 
     return determinant >= 0;
 }
 
-Vector3<float> Ray::getIntensity() {
+Vector3<float> Ray::get_intensity() {
     // TODO
     // integral of hemisphere
     // BRDF to determine how much comes out based onw what comes in (based on material)
     // incoming ray
     // attenuation factor of incoming angle (based on geometry)
 
-    return Vector3<float>(1, 1, 1);
+    return {1, 1, 1};
 }
 
 /// Hit point getter
 /// \return The hit point of the raycast
-Vector3<float> *Ray::getHit() { return hit; }
+Vector3<float> *Ray::get_hit() { return hit; }
 /// Raycast vector getter
 /// \return The vector of the raycast
-Vector3<float> *Ray::getRaycast() { return raycast; }
+Vector3<float> *Ray::get_raycast() { return raycast; }
 /// Does hit getter
 /// \return Whether the raycast hits the shape
-bool Ray::getDoesHit() { return doesHit; }
+bool Ray::get_does_hit() { return does_hit; }

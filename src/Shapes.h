@@ -13,14 +13,14 @@ public:
     ~Shape();
 
     virtual string getType();
-    virtual Vector3<float> *getAmbientColour(), *getDiffuseColour(), *getSpecularColour();
-    virtual float getAmbientCoefficient(), getDiffuseCoefficient(), getSpecularCoefficient();
-    virtual float getPhongCoefficient();
+    virtual Vector3<float> *get_ambient_colour(), *get_diffuse_colour(), *get_specular_colour();
+    virtual float get_ambient_coefficient(), get_diffuse_coefficient(), get_specular_coefficient();
+    virtual float get_phong_coefficient();
 protected:
     string type;
-    Vector3<float> *ambientColour, *diffuseColour, *specularColour;
-    float ambientCoefficient, diffuseCoefficient, specularCoefficient;
-    float phongCoefficient;
+    Vector3<float> *ambient_colour, *diffuse_colour, *specular_colour;
+    float ambient_coefficient, diffuse_coefficient, specular_coefficient;
+    float phong_coefficient;
 };
 
 class Triangle : public Shape {
@@ -28,15 +28,15 @@ public:
     Triangle(Vector3<float>*, Vector3<float>*, Vector3<float>*,
         Vector3<float>*, Vector3<float>*, Vector3<float>*,
         float, float, float,
-        float, bool);
+        float, Vector3<float>*, bool);
     ~Triangle();
 
     friend ostream& operator<<(ostream &strm, const Triangle &t);
 
-    Vector3<float> *A(), *B(), *C(), *getNormal();
+    Vector3<float> *A(), *B(), *C(), *get_normal();
 private:
     Vector3<float> *a, *b, *c, *normal;
-    bool isSecondTriangle;
+    bool is_second_triangle;
 };
 
 class Rectangle : public Shape {
@@ -50,7 +50,7 @@ public:
     friend ostream& operator<<(ostream &strm, const Rectangle &p);
 
     Triangle *getT1(), *getT2();
-    Vector3<float> *A(), *B(), *C(), *D(), *getNormal();
+    Vector3<float> *A(), *B(), *C(), *D(), *get_normal();
 private:
     Triangle *t1, *t2;
 };
@@ -60,7 +60,7 @@ public:
     Shape3D(string, Vector3<float>*, Vector3<float>*, Vector3<float>*, Vector3<float>*, float, float, float, float);
     ~Shape3D();
 
-    Vector3<float> *getOrigin();
+    Vector3<float> *get_origin();
 protected:
     Vector3<float> *origin;
 };
@@ -72,7 +72,7 @@ public:
 
     friend ostream& operator<<(ostream &strm, const Sphere &s);
 
-    float getRadius();
+    float get_radius() const;
 private:
     float radius;
 };

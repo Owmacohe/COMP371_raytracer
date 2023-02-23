@@ -4,32 +4,32 @@
 
 /// Shape abstract class constructor
 /// \param t The type of the shape
-/// \param ambCol Ambient colour of the shape
-/// \param diffCol Diffuse colour of the shape
-/// \param specCol Specular colour of the shape
-/// \param ambCoe Ambient coefficient of the shape
-/// \param diffCoe Diffuse coefficient of the shape
-/// \param specCoe Specular coefficient of the shape
-/// \param phongCoe Phone coefficient of the shape
+/// \param amb_col Ambient colour of the shape
+/// \param diff_col Diffuse colour of the shape
+/// \param spec_col Specular colour of the shape
+/// \param amb_coe Ambient coefficient of the shape
+/// \param diff_coe Diffuse coefficient of the shape
+/// \param spec_coe Specular coefficient of the shape
+/// \param phong_coe Phone coefficient of the shape
 Shape::Shape(string t,
-        Vector3<float> *ambCol, Vector3<float> *diffCol, Vector3<float> *specCol,
-        float ambCoe, float diffCoe, float specCoe,
-        float phongCoe) :
+        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+        float amb_coe, float diff_coe, float spec_coe,
+        float phong_coe) :
     type(t),
-    ambientColour(ambCol), diffuseColour(ambCol), specularColour(ambCol),
-    ambientCoefficient(ambCoe), diffuseCoefficient(diffCoe), specularCoefficient(specCoe),
-    phongCoefficient(phongCoe) { }
+    ambient_colour(amb_col), diffuse_colour(diff_col), specular_colour(spec_col),
+    ambient_coefficient(amb_coe), diffuse_coefficient(diff_coe), specular_coefficient(spec_coe),
+    phong_coefficient(phong_coe) { }
 
 /// Shape destructor
 Shape::~Shape() {
-    delete ambientColour;
-    ambientColour = NULL;
+    delete ambient_colour;
+    ambient_colour = NULL;
 
-    delete diffuseColour;
-    diffuseColour = NULL;
+    delete diffuse_colour;
+    diffuse_colour = NULL;
 
-    delete specularColour;
-    specularColour = NULL;
+    delete specular_colour;
+    specular_colour = NULL;
 
     cout << "delete SHAPE" << endl;
 }
@@ -40,27 +40,27 @@ string Shape::getType() { return type; }
 
 /// Ambient colour getter
 /// \return Ambient colour of the shape
-Vector3<float> *Shape::getAmbientColour() { return ambientColour; }
+Vector3<float> *Shape::get_ambient_colour() { return ambient_colour; }
 /// Diffuse colour getter
 /// \return Diffuse colour of the shape
-Vector3<float> *Shape::getDiffuseColour() { return diffuseColour; }
+Vector3<float> *Shape::get_diffuse_colour() { return diffuse_colour; }
 /// Specular colour getter
 /// \return Specular colour of the shape
-Vector3<float> *Shape::getSpecularColour() { return specularColour; }
+Vector3<float> *Shape::get_specular_colour() { return specular_colour; }
 
 /// Ambient coefficient getter
 /// \return Ambient coefficient of the shape
-float Shape::getAmbientCoefficient() { return ambientCoefficient; }
+float Shape::get_ambient_coefficient() { return ambient_coefficient; }
 /// Diffuse coefficient getter
 /// \return Diffuse coefficient of the shape
-float Shape::getDiffuseCoefficient() { return diffuseCoefficient; }
+float Shape::get_diffuse_coefficient() { return diffuse_coefficient; }
 /// Specular coefficient getter
 /// \return Specular coefficient of the shape
-float Shape::getSpecularCoefficient() { return specularCoefficient; }
+float Shape::get_specular_coefficient() { return specular_coefficient; }
 
 /// Phong coefficient getter
 /// \return Phone coefficient of the shape
-float Shape::getPhongCoefficient() { return phongCoefficient; }
+float Shape::get_phong_coefficient() { return phong_coefficient; }
 
 
 
@@ -70,40 +70,42 @@ float Shape::getPhongCoefficient() { return phongCoefficient; }
 /// \param p1 First point
 /// \param p2 Second point
 /// \param p3 Third point
-/// \param ambCol Ambient colour of the shape
-/// \param diffCol Diffuse colour of the shape
-/// \param specCol Specular colour of the shape
-/// \param ambCoe Ambient coefficient of the shape
-/// \param diffCoe Diffuse coefficient of the shape
-/// \param specCoe Specular coefficient of the shape
-/// \param phongCoe Phone coefficient of the shape
+/// \param amb_col Ambient colour of the shape
+/// \param diff_col Diffuse colour of the shape
+/// \param spec_col Specular colour of the shape
+/// \param amb_coe Ambient coefficient of the shape
+/// \param diff_coe Diffuse coefficient of the shape
+/// \param spec_coe Specular coefficient of the shape
+/// \param phong_coe Phone coefficient of the shape
 /// \param isSecond Whether this triangle is the second of a square
 Triangle::Triangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3,
-            Vector3<float> *ambCol, Vector3<float> *diffCol, Vector3<float> *specCol,
-            float ambCoe, float diffCoe, float specCoe,
-            float phongCoe, bool isSecond) :
-        Shape("Triangle", ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe),
+            Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+            float amb_coe, float diff_coe, float spec_coe,
+            float phong_coe, Vector3<float>* normal_override, bool is_second) :
+        Shape("Triangle", amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe),
         a(p1), b(p2), c(p3),
-        isSecondTriangle(isSecond) {
-    Vector3<float> temp = (*c - *a).cross(*b - *a);
-    normal = new Vector3<float>(temp / temp.norm());
+        is_second_triangle(is_second) {
+    // Making sure both Triangles have the same normal
+    normal = (normal_override == NULL)
+        ? new Vector3<float>((*b - *a).cross(*c - *a).normalized())
+        : normal_override;
 }
 
 /// Triangle destructor
 Triangle::~Triangle() {
-    if (!isSecondTriangle) {
+    if (!is_second_triangle) {
         delete a;
         a = NULL;
 
         delete b;
         b = NULL;
+
+        delete normal;
+        normal = NULL;
     }
 
     delete c;
     c = NULL;
-
-    delete normal;
-    normal = NULL;
 
     cout << "delete TRIANGLE" << endl;
 }
@@ -130,7 +132,7 @@ Vector3<float> *Triangle::B() { return b; }
 Vector3<float> *Triangle::C() { return c; }
 /// Normal getter
 /// \return Normal to the plane
-Vector3<float> *Triangle::getNormal() { return normal; }
+Vector3<float> *Triangle::get_normal() { return normal; }
 
 
 
@@ -141,19 +143,19 @@ Vector3<float> *Triangle::getNormal() { return normal; }
 /// \param p2 Second point
 /// \param p3 Third point
 /// \param p4 Fourth point
-/// \param ambCol Ambient colour of the shape
-/// \param diffCol Diffuse colour of the shape
-/// \param specCol Specular colour of the shape
-/// \param ambCoe Ambient coefficient of the shape
-/// \param diffCoe Diffuse coefficient of the shape
-/// \param specCoe Specular coefficient of the shape
-/// \param phongCoe Phone coefficient of the shape
+/// \param amb_col Ambient colour of the shape
+/// \param diff_col Diffuse colour of the shape
+/// \param spec_col Specular colour of the shape
+/// \param amb_coe Ambient coefficient of the shape
+/// \param diff_coe Diffuse coefficient of the shape
+/// \param spec_coe Specular coefficient of the shape
+/// \param phong_coe Phone coefficient of the shape
 Rectangle::Rectangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3, Vector3<float> *p4,
-        Vector3<float> *ambCol, Vector3<float> *diffCol, Vector3<float> *specCol,
-        float ambCoe, float diffCoe, float specCoe,
-        float phongCoe) :
-    Shape("Rectangle", ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe),
-    t1(new Triangle(p1, p2, p3, ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe, false)) {
+        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+        float amb_coe, float diff_coe, float spec_coe,
+        float phong_coe) :
+    Shape("Rectangle", amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe),
+    t1(new Triangle(p1, p2, p3, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, NULL, false)) {
 
     // Checking to see where the hypotenuse is
     float p1p2 = (*p1 - *p2).norm();
@@ -162,13 +164,13 @@ Rectangle::Rectangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3,
 
     // Creating the second triangle along the hypotenuse
     if (p1p2 >= p2p3 && p1p2 >= p3p1) {
-        t2 = new Triangle(p1, p2, p4, ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe, true);
+        t2 = new Triangle(p1, p2, p4, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, t1->get_normal(), true);
     }
     else if (p2p3 >= p1p2 && p2p3 >= p3p1) {
-        t2 = new Triangle(p2, p3, p4, ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe, true);
+        t2 = new Triangle(p2, p3, p4, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, t1->get_normal(), true);
     }
     else if (p3p1 >= p1p2 && p3p1 >= p2p3) {
-        t2 = new Triangle(p3, p1, p4, ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe, true);
+        t2 = new Triangle(p3, p1, p4, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, t1->get_normal(), true);
     }
 }
 
@@ -177,8 +179,10 @@ Rectangle::~Rectangle() {
     delete t1;
     t1 = NULL;
 
+    /*
     delete t2;
     t2 = NULL;
+    */
 
     cout << "delete RECTANGLE" << endl;
 }
@@ -216,7 +220,7 @@ Vector3<float> *Rectangle::C() { return t1->C(); }
 Vector3<float> *Rectangle::D() { return t2->C(); }
 /// Normal getter
 /// \return Normal to the plane
-Vector3<float> *Rectangle::getNormal() { return t1->getNormal(); }
+Vector3<float> *Rectangle::get_normal() { return t1->get_normal(); }
 
 
 
@@ -225,18 +229,18 @@ Vector3<float> *Rectangle::getNormal() { return t1->getNormal(); }
 /// Shape3D abstract class constructor
 /// \param t The type of the shape
 /// \param o The origin of the shape
-/// \param ambCol Ambient colour of the shape
-/// \param diffCol Diffuse colour of the shape
-/// \param specCol Specular colour of the shape
-/// \param ambCoe Ambient coefficient of the shape
-/// \param diffCoe Diffuse coefficient of the shape
-/// \param specCoe Specular coefficient of the shape
-/// \param phongCoe Phone coefficient of the shape
+/// \param amb_col Ambient colour of the shape
+/// \param diff_col Diffuse colour of the shape
+/// \param spec_col Specular colour of the shape
+/// \param amb_coe Ambient coefficient of the shape
+/// \param diff_coe Diffuse coefficient of the shape
+/// \param spec_coe Specular coefficient of the shape
+/// \param phong_coe Phone coefficient of the shape
 Shape3D::Shape3D(string t, Vector3<float> *o,
-        Vector3<float> *ambCol, Vector3<float> *diffCol, Vector3<float> *specCol,
-        float ambCoe, float diffCoe, float specCoe,
-        float phongCoe) :
-    Shape(t, ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe), origin(o) { }
+        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+        float amb_coe, float diff_coe, float spec_coe,
+        float phong_coe) :
+    Shape(t, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe), origin(o) { }
 
 /// Shape3D destructor
 Shape3D::~Shape3D() {
@@ -246,7 +250,7 @@ Shape3D::~Shape3D() {
 
 /// Origin getter
 /// \return The origin of the shape
-Vector3<float> *Shape3D::getOrigin() { return origin; }
+Vector3<float> *Shape3D::get_origin() { return origin; }
 
 
 
@@ -255,18 +259,18 @@ Vector3<float> *Shape3D::getOrigin() { return origin; }
 /// Sphere class constructor
 /// \param o The origin of the shape
 /// \param r Radius of the sphere
-/// \param ambCol Ambient colour of the shape
-/// \param diffCol Diffuse colour of the shape
-/// \param specCol Specular colour of the shape
-/// \param ambCoe Ambient coefficient of the shape
-/// \param diffCoe Diffuse coefficient of the shape
-/// \param specCoe Specular coefficient of the shape
-/// \param phongCoe Phone coefficient of the shape
+/// \param amb_col Ambient colour of the shape
+/// \param diff_col Diffuse colour of the shape
+/// \param spec_col Specular colour of the shape
+/// \param amb_coe Ambient coefficient of the shape
+/// \param diff_coe Diffuse coefficient of the shape
+/// \param spec_coe Specular coefficient of the shape
+/// \param phong_coe Phone coefficient of the shape
 Sphere::Sphere(Vector3<float> *o, float r,
-        Vector3<float> *ambCol, Vector3<float> *diffCol, Vector3<float> *specCol,
-        float ambCoe, float diffCoe, float specCoe,
-        float phongCoe) :
-    Shape3D("Sphere", o, ambCol, diffCol, specCol, ambCoe, diffCoe, specCoe, phongCoe), radius(r) { }
+        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+        float amb_coe, float diff_coe, float spec_coe,
+        float phong_coe) :
+    Shape3D("Sphere", o, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe), radius(r) { }
 
 /// Sphere destructor
 Sphere::~Sphere() {
@@ -285,4 +289,4 @@ ostream& operator<<(ostream &strm, const Sphere &s) {
 
 /// Radius getter
 /// \return Radius of the sphere
-float Sphere::getRadius() { return radius; }
+float Sphere::get_radius() const { return radius; }

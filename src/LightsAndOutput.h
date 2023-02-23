@@ -10,11 +10,11 @@ public:
     Light(string, Vector3<float>*, Vector3<float>*);
     ~Light();
 
-    virtual string getType();
-    virtual Vector3<float> *getDiffuseIntensity(), *getSpecularIntensity();
+    virtual string get_type();
+    virtual Vector3<float> *get_diffuse_intensity(), *get_specular_intensity();
 protected:
     string type;
-    Vector3<float> *diffuseIntensity, *specularIntensity;
+    Vector3<float> *diffuse_intensity, *specular_intensity;
 };
 
 class Point : public Light {
@@ -22,7 +22,7 @@ public:
     Point(Vector3<float>*, Vector3<float>*, Vector3<float>*);
     ~Point();
 
-    Vector3<float> *getOrigin();
+    Vector3<float> *get_origin();
 private:
     Vector3<float> *origin;
 };
@@ -32,7 +32,7 @@ public:
     Area(Vector3<float>*, Vector3<float>*, Vector3<float>*, Vector3<float>*, Vector3<float>*, Vector3<float>*);
     ~Area();
 
-    Vector3<float> *getP1(), *getP2(), *getP3(), *getP4();
+    Vector3<float> *P1(), *P2(), *P3(), *P4();
 private:
     Vector3<float> *p1, *p2, *p3, *p4;
 };
@@ -42,8 +42,8 @@ public:
     Output(Image*, Camera*);
     ~Output();
 
-    Image *getImage();
-    Camera *getCamera();
+    Image *get_image();
+    Camera *get_camera();
 private:
     Image *image;
     Camera *camera;
