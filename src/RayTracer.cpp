@@ -51,8 +51,10 @@ RayTracer::~RayTracer() {
         }
     }
 
-    delete output;
-    output = NULL;
+    for (Output *o : outputs) {
+        delete o;
+        o = NULL;
+    }
 
     cout << "delete RAYTRACER" << endl;
 }
@@ -63,12 +65,20 @@ void RayTracer::run() {
 
     shapes = parse_geometry();
     lights = parse_lights();
-    output = parse_output();
+    outputs = parse_outputs();
 
-    for (Shape *s : shapes)
-        output->get_image()->raycast(output->get_camera(), s, true, false, true);
+    for (Output *o : outputs) {
+        for (Shape *s : shapes)
+            o->get_image()->raycast(
+                o->get_camera(),
+                s,
+                lights,
+                true, false, true);
 
-    cout << endl << "Number of hits: " << output->get_image()->get_number_of_hits() << endl << endl;
+        cout << endl << "[" << o->get_image()->get_name() << "] number of hits: " << o->get_image()->get_number_of_hits() << endl;
+    }
+
+    cout << endl;
 }
 
 /// Parser for the geometry elements
@@ -167,11 +177,13 @@ vector<Light*> RayTracer::parse_lights() {
 /// Parser for the output elements
 /// \param j JSON to parse from
 /// \return A single output object
-Output *RayTracer::parse_output() {
-    Image *img;
-    Camera *cam;
+vector<Output*> RayTracer::parse_outputs() {
+    vector<Output*> temp;
 
     for (auto itr = (*j)["output"].begin(); itr!= (*j)["output"].end(); itr++) {
+        Image *img;
+        Camera *cam;
+
         img = new Image(
             (*itr)["filename"],
             (*itr)["size"][0], (*itr)["size"][1], (*itr)["fov"],
@@ -182,9 +194,11 @@ Output *RayTracer::parse_output() {
             new Vector3<float>((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
             new Vector3<float>((*itr)["lookat"][0], (*itr)["lookat"][1], (*itr)["lookat"][2]),
             new Vector3<float>((*itr)["up"][0], (*itr)["up"][1], (*itr)["up"][2]));
+
+        temp.push_back(new Output(img, cam));
     }
 
-    return new Output(img, cam);
+    return temp;
 }
 
 
@@ -329,7 +343,7 @@ Vector3<float> *Image::get_background() { return background; }
 /// \param save Whether to save the resulting hits to the PPM
 /// \param verbose Whether to print raycasts to the console as they happen
 /// \param onlyDisplayHits Whether to display only the raycasts that hit in the console
-void Image::raycast(Camera *cam, Shape *sha, bool save, bool verbose, bool onlyDisplayHits) {
+void Image::raycast(Camera *cam, Shape *sha, vector<Light*> li, bool save, bool verbose, bool onlyDisplayHits) {
     int count = 0;
 
     float aspect = width / height;
@@ -358,15 +372,23 @@ void Image::raycast(Camera *cam, Shape *sha, bool save, bool verbose, bool onlyD
             if (ray->get_does_hit()) {
                 number_of_hits++;
 
-                // TODO: this should be projective (not orthographic) in the future
                 if (save) {
                     int index = (3 * j * width) + (3 * i);
 
-                    Vector3<float> intensity = ray->get_intensity(); // TODO: implement this below
+                    Vector3<float> intensity = { 0, 0, 0};
 
-                    buffer->at(index + 0) = sha->get_ambient_colour()->x();
-                    buffer->at(index + 1) = sha->get_ambient_colour()->y();
-                    buffer->at(index + 2) = sha->get_ambient_colour()->z();
+                    for (Light* k : li) {
+                        if (k->get_type() == "Point")
+                            intensity += ray->get_intensity(
+                                ray->get_hit(),
+                                sha,
+                                dynamic_cast<Point*>(k),
+                                1); // TODO: what to do with shininess?
+                    }
+
+                    buffer->at(index + 0) = intensity.x();
+                    buffer->at(index + 1) = intensity.y();
+                    buffer->at(index + 2) = intensity.z();
                 }
             }
 
@@ -463,7 +485,7 @@ bool Ray::hit_triangle(Triangle *tri) {
     // Only hits if it's on the same side as all of the triangle's lines
     bool temp = (ba == cb) && (cb == ac);
 
-    if (temp) hit = raycast; // TODO: this may not always be correct
+    if (temp) hit = raycast;
 
     return temp;
 }
@@ -488,21 +510,88 @@ bool Ray::hit_sphere(Vector3<float> *o, Sphere *sph) {
     float root1 = (-b + sqrt(determinant)) / (2 * a);
     float root2 = (-b - sqrt(determinant)) / (2 * a);
 
-    // TODO: I don't think this is accurate
     // Finding which root is closer (the hit which will be displayed)
     hit = new Vector3<float>(*o + dir * (root1 < root2 ? root1 : root2));
 
     return determinant >= 0;
 }
 
-Vector3<float> Ray::get_intensity() {
-    // TODO
-    // integral of hemisphere
-    // BRDF to determine how much comes out based onw what comes in (based on material)
-    // incoming ray
-    // attenuation factor of incoming angle (based on geometry)
+Vector3<float> Ray::get_intensity(Vector3<float> *hit, Shape *sha, Point *poi, float shininess) {
+    /*
+    precision mediump float;
+    varying vec3 normalInterp;  // Surface normal
+    varying vec3 vertPos;       // Vertex position
+    uniform int mode;   // Rendering mode
+    uniform float Ka;   // Ambient reflection coefficient
+    uniform float Kd;   // Diffuse reflection coefficient
+    uniform float Ks;   // Specular reflection coefficient
+    uniform float shininessVal; // Shininess
 
-    return {1, 1, 1};
+    // Material color
+    uniform vec3 ambientColor;
+    uniform vec3 diffuseColor;
+    uniform vec3 specularColor;
+    uniform vec3 lightPos; // Light position
+
+    void main() {
+        vec3 N = normalize(normalInterp);
+        vec3 L = normalize(lightPos - vertPos);
+
+        // Lambert's cosine law
+        float lambertian = max(dot(N, L), 0.0);
+        float specular = 0.0;
+        if(lambertian > 0.0) {
+            vec3 R = reflect(-L, N);      // Reflected light vector
+            vec3 V = normalize(-vertPos); // Vector to viewer
+            // Compute the specular term
+            float specAngle = max(dot(R, V), 0.0);
+            specular = pow(specAngle, shininessVal);
+        }
+        gl_FragColor = vec4(Ka * ambientColor +
+                            Kd * lambertian * diffuseColor +
+                            Ks * specular * specularColor, 1.0);
+
+        // only ambient
+        if(mode == 2) gl_FragColor = vec4(Ka * ambientColor, 1.0);
+        // only diffuse
+        if(mode == 3) gl_FragColor = vec4(Kd * lambertian * diffuseColor, 1.0);
+        // only specular
+        if(mode == 4) gl_FragColor = vec4(Ks * specular * specularColor, 1.0);
+    }
+    */
+
+    Vector3<float> N;
+
+    if (sha->getType() == "Triangle") {
+        N = *dynamic_cast<Triangle*>(sha)->get_normal();
+    }
+    else if (sha->getType() == "Rectangle") {
+        N = *dynamic_cast<Rectangle*>(sha)->get_normal();
+    }
+    else if (sha->getType() == "Sphere") {
+        N = (*hit - *dynamic_cast<Sphere*>(sha)->get_origin()).normalized();
+    }
+
+    Vector3<float> L = (*poi->get_origin() - *hit).normalized();
+
+    float NL = N.dot(L);
+    float lambertian = NL > 0 ? NL : 0;
+    float specular;
+
+    if (lambertian > 0) {
+        Vector3<float> R = (-L) - 2 * ((-L).dot(N)) * N; // 𝑟=𝑑−2(𝑑⋅𝑛)𝑛
+        Vector3<float> V = (-*hit).normalized();
+
+        float RV = R.dot(V);
+        float specAngle = RV > 0 ? RV : 0;
+        specular = pow(specAngle, shininess);
+    }
+
+    Vector3<float> amb = sha->get_ambient_coefficient() * *sha->get_ambient_colour();
+    Vector3<float> diff = sha->get_diffuse_coefficient() * lambertian * *sha->get_diffuse_colour();
+    Vector3<float> spec = sha->get_specular_coefficient() * specular * *sha->get_specular_colour();
+
+    return amb + diff + spec;
 }
 
 /// Hit point getter

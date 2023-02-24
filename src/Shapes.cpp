@@ -179,10 +179,8 @@ Rectangle::~Rectangle() {
     delete t1;
     t1 = NULL;
 
-    /*
     delete t2;
     t2 = NULL;
-    */
 
     cout << "delete RECTANGLE" << endl;
 }

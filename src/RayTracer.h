@@ -20,6 +20,7 @@ class Triangle;
 class Sphere;
 
 class Light;
+class Point;
 class Output;
 
 class RayTracer {
@@ -33,11 +34,11 @@ private:
 
     vector<Shape*> parse_geometry();
     vector<Light*> parse_lights();
-    Output *parse_output();
+    vector<Output*> parse_outputs();
 
     vector<Shape*> shapes;
     vector<Light*> lights;
-    Output *output;
+    vector<Output*> outputs;
 };
 
 class Camera {
@@ -66,7 +67,7 @@ public:
 
     Vector3<float> *get_ambient(), *get_background();
 
-    void raycast(Camera*, Shape*, bool, bool, bool);
+    void raycast(Camera*, Shape*, vector<Light*>, bool, bool, bool);
 private:
     vector<double> *buffer;
 
@@ -86,7 +87,7 @@ public:
     Ray(Image*, Camera*, Vector3<float>,Shape*, int, int);
     ~Ray();
 
-    Vector3<float> get_intensity();
+    Vector3<float> get_intensity(Vector3<float>*, Shape*, Point*, float);
 
     Vector3<float> *get_raycast();
     Vector3<float> *get_hit();
