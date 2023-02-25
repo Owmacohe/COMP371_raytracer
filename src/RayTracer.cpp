@@ -340,6 +340,7 @@ Vector3<float> *Image::get_background() { return background; }
 /// Method to raycast into the scene in the hopes of hitting a particular shape
 /// \param cam The camera from which to cast the rays
 /// \param sha The shape that we're trying to hit
+/// \param li List of lights to include in intensity calculations
 /// \param save Whether to save the resulting hits to the PPM
 /// \param verbose Whether to print raycasts to the console as they happen
 /// \param onlyDisplayHits Whether to display only the raycasts that hit in the console
@@ -391,6 +392,8 @@ void Image::raycast(Camera *cam, Shape *sha, vector<Light*> li, bool save, bool 
                                 dynamic_cast<Area*>(k),
                                 sha->get_phong_coefficient());
                     }
+
+                    intensity /= li.size();
 
                     buffer->at(index + 0) = intensity.x();
                     buffer->at(index + 1) = intensity.y();
