@@ -20,7 +20,7 @@ class Triangle;
 class Sphere;
 
 class Light;
-class Point;
+class Area;
 class Output;
 
 class RayTracer {
@@ -80,14 +80,18 @@ private:
     Vector3<float> *background;
 };
 
+Vector3<float> get_triangle_raycast(Vector3<float>*, Vector3<float>*, Vector3<float>);
 bool is_on_right(Vector3<float>*, Vector3<float>*, Vector3<float>*, Vector3<float>*);
+float clamp(float, float);
+float clamp(float, float, float);
 
 class Ray {
 public:
     Ray(Image*, Camera*, Vector3<float>,Shape*, int, int);
     ~Ray();
 
-    Vector3<float> get_intensity(Vector3<float>*, Shape*, Point*, float);
+    Vector3<float> get_intensity(Vector3<float>*, Shape*, Vector3<float>, float);
+    Vector3<float> get_area_intensity(Vector3<float>*, Shape*, Area*, float);
 
     Vector3<float> *get_raycast();
     Vector3<float> *get_hit();

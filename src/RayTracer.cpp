@@ -375,15 +375,21 @@ void Image::raycast(Camera *cam, Shape *sha, vector<Light*> li, bool save, bool 
                 if (save) {
                     int index = (3 * j * width) + (3 * i);
 
-                    Vector3<float> intensity = { 0, 0, 0};
+                    Vector3<float> intensity = {0, 0, 0};
 
                     for (Light* k : li) {
                         if (k->get_type() == "Point")
                             intensity += ray->get_intensity(
                                 ray->get_hit(),
                                 sha,
-                                dynamic_cast<Point*>(k),
-                                1); // TODO: what to do with shininess?
+                                *dynamic_cast<Point*>(k)->get_origin(),
+                                sha->get_phong_coefficient());
+                        else if (k->get_type() == "Area")
+                            intensity += ray->get_area_intensity(
+                                ray->get_hit(),
+                                sha,
+                                dynamic_cast<Area*>(k),
+                                sha->get_phong_coefficient());
                     }
 
                     buffer->at(index + 0) = intensity.x();
@@ -404,7 +410,12 @@ void Image::raycast(Camera *cam, Shape *sha, vector<Light*> li, bool save, bool 
 
 /* ### Ray ### */
 
-Vector3<float> getTriangleRaycast(Vector3<float> *o, Vector3<float> *n, Vector3<float> out) {
+/// Gets the raycast hit point for a triangle
+/// \param o Origin of the raycast
+/// \param n Normal of the triangle
+/// \param out Camera-to-image-plane outgoing vector
+/// \return The 3D hit point of the triangle raycast
+Vector3<float> get_triangle_raycast(Vector3<float> *o, Vector3<float> *n, Vector3<float> out) {
     float t = -(o->dot(*n) - 4) / (out.dot(*n));
     return *o + (out * t);
 }
@@ -426,21 +437,21 @@ Ray::Ray(Image *img, Camera *cam, Vector3<float> base, Shape *sha, int x_index, 
     if (sha->getType() == "Triangle") {
         Triangle *tri = dynamic_cast<Triangle*>(sha);
 
-        raycast = new Vector3<float>(getTriangleRaycast(cam->get_origin(), tri->get_normal(), out));
+        raycast = new Vector3<float>(get_triangle_raycast(cam->get_origin(), tri->get_normal(), out));
 
         does_hit = hit_triangle(tri);
     }
     if (sha->getType() == "Rectangle") {
         Rectangle *pla = dynamic_cast<Rectangle*>(sha);
 
-        raycast = new Vector3<float>(getTriangleRaycast(cam->get_origin(), pla->getT1()->get_normal(), out));
+        raycast = new Vector3<float>(get_triangle_raycast(cam->get_origin(), pla->getT1()->get_normal(), out));
         does_hit = hit_triangle(pla->getT1());
 
         if (!does_hit) {
             delete raycast;
             raycast = NULL;
 
-            raycast = new Vector3<float>(getTriangleRaycast(cam->get_origin(), pla->getT2()->get_normal(), out));
+            raycast = new Vector3<float>(get_triangle_raycast(cam->get_origin(), pla->getT2()->get_normal(), out));
             does_hit = hit_triangle(pla->getT2());
         }
     }
@@ -470,7 +481,7 @@ Ray::~Ray() {
 /// \param p2 The second point of the line
 /// \param n The normal of the line
 /// \return Whether the ray is on the right of the line
-bool isOnRight(Vector3<float> *ray, Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *n) {
+bool is_on_right(Vector3<float> *ray, Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *n) {
     return ((*p1 - *p2).cross(*ray - *p2)).dot(*n) > 0;
 }
 
@@ -478,9 +489,9 @@ bool isOnRight(Vector3<float> *ray, Vector3<float> *p1, Vector3<float> *p2, Vect
 /// \param tri Triangle to hit
 /// \return Whether the ray does hit
 bool Ray::hit_triangle(Triangle *tri) {
-    bool ba = isOnRight(raycast, tri->B(), tri->A(), tri->get_normal());
-    bool cb = isOnRight(raycast, tri->C(), tri->B(), tri->get_normal());
-    bool ac = isOnRight(raycast, tri->A(), tri->C(), tri->get_normal());
+    bool ba = is_on_right(raycast, tri->B(), tri->A(), tri->get_normal());
+    bool cb = is_on_right(raycast, tri->C(), tri->B(), tri->get_normal());
+    bool ac = is_on_right(raycast, tri->A(), tri->C(), tri->get_normal());
 
     // Only hits if it's on the same side as all of the triangle's lines
     bool temp = (ba == cb) && (cb == ac);
@@ -516,52 +527,38 @@ bool Ray::hit_sphere(Vector3<float> *o, Sphere *sph) {
     return determinant >= 0;
 }
 
-Vector3<float> Ray::get_intensity(Vector3<float> *hit, Shape *sha, Point *poi, float shininess) {
-    /*
-    precision mediump float;
-    varying vec3 normalInterp;  // Surface normal
-    varying vec3 vertPos;       // Vertex position
-    uniform int mode;   // Rendering mode
-    uniform float Ka;   // Ambient reflection coefficient
-    uniform float Kd;   // Diffuse reflection coefficient
-    uniform float Ks;   // Specular reflection coefficient
-    uniform float shininessVal; // Shininess
+/// Free method to clamp a value above a minimum
+/// \param f Float to clamp
+/// \param min Minimum amount for the value
+/// \return The minimally-clamped value
+float clamp(float f, float min) {
+    if (f < min) f = min;
 
-    // Material color
-    uniform vec3 ambientColor;
-    uniform vec3 diffuseColor;
-    uniform vec3 specularColor;
-    uniform vec3 lightPos; // Light position
+    return f;
+}
 
-    void main() {
-        vec3 N = normalize(normalInterp);
-        vec3 L = normalize(lightPos - vertPos);
+/// Free method to clamp a value between a minimum and maximum
+/// \param f Float to clamp
+/// \param min Minimum amount for the value
+/// \param max Maximum amount for the value
+/// \return The clamped value
+float clamp(float f, float min, float max) {
+    if (f < min) f = min;
+    if (f > max) f = max;
 
-        // Lambert's cosine law
-        float lambertian = max(dot(N, L), 0.0);
-        float specular = 0.0;
-        if(lambertian > 0.0) {
-            vec3 R = reflect(-L, N);      // Reflected light vector
-            vec3 V = normalize(-vertPos); // Vector to viewer
-            // Compute the specular term
-            float specAngle = max(dot(R, V), 0.0);
-            specular = pow(specAngle, shininessVal);
-        }
-        gl_FragColor = vec4(Ka * ambientColor +
-                            Kd * lambertian * diffuseColor +
-                            Ks * specular * specularColor, 1.0);
+    return f;
+}
 
-        // only ambient
-        if(mode == 2) gl_FragColor = vec4(Ka * ambientColor, 1.0);
-        // only diffuse
-        if(mode == 3) gl_FragColor = vec4(Kd * lambertian * diffuseColor, 1.0);
-        // only specular
-        if(mode == 4) gl_FragColor = vec4(Ks * specular * specularColor, 1.0);
-    }
-    */
-
+/// Method to calculate the intensity for a particular raycast
+/// \param hit The hit point for the raycast
+/// \param sha The shape being hit
+/// \param poi The light source point
+/// \param shininess The amount of shine
+/// \return An RGB intensity for the given raycast
+Vector3<float> Ray::get_intensity(Vector3<float> *hit, Shape *sha, Vector3<float> poi, float shininess) {
     Vector3<float> N;
 
+    // Get the respective normal
     if (sha->getType() == "Triangle") {
         N = *dynamic_cast<Triangle*>(sha)->get_normal();
     }
@@ -572,26 +569,75 @@ Vector3<float> Ray::get_intensity(Vector3<float> *hit, Shape *sha, Point *poi, f
         N = (*hit - *dynamic_cast<Sphere*>(sha)->get_origin()).normalized();
     }
 
-    Vector3<float> L = (*poi->get_origin() - *hit).normalized();
+    Vector3<float> L = (poi - *hit).normalized(); // Direction from the hit to the light source
 
-    float NL = N.dot(L);
-    float lambertian = NL > 0 ? NL : 0;
+    float lambertian = clamp(N.dot(L), 0); // Setting up Lambert's cosine law
     float specular;
 
     if (lambertian > 0) {
-        Vector3<float> R = (-L) - 2 * ((-L).dot(N)) * N; // 𝑟=𝑑−2(𝑑⋅𝑛)𝑛
+        Vector3<float> R = (-L) - 2 * ((-L).dot(N)) * N;
         Vector3<float> V = (-*hit).normalized();
 
-        float RV = R.dot(V);
-        float specAngle = RV > 0 ? RV : 0;
+        // Getting the specular
+        float specAngle = clamp(R.dot(V), 0);
         specular = pow(specAngle, shininess);
     }
 
+    // Getting the three light/colour values
     Vector3<float> amb = sha->get_ambient_coefficient() * *sha->get_ambient_colour();
     Vector3<float> diff = sha->get_diffuse_coefficient() * lambertian * *sha->get_diffuse_colour();
     Vector3<float> spec = sha->get_specular_coefficient() * specular * *sha->get_specular_colour();
 
-    return amb + diff + spec;
+    Vector3<float> intensity = amb + diff + spec;
+
+    // Clamping each intensity value between 0 and 1
+    intensity.x() = clamp(intensity.x(), 0, 1);
+    intensity.y() = clamp(intensity.y(), 0, 1);
+    intensity.z() = clamp(intensity.z(), 0, 1);
+
+    return intensity;
+}
+
+Vector3<float> Ray::get_area_intensity(Vector3<float> *hit, Shape *sha, Area *area, float shininess) {
+    float p1p2 = (*area->P1() - *area->P2()).norm();
+    float p1p3 = (*area->P1() - *area->P3()).norm();
+    float p1p4 = (*area->P1() - *area->P4()).norm();
+
+    Vector3<float> temp1, temp2;
+
+    if (p1p2 >= p1p3 && p1p2 >= p1p4) {
+        temp1 = *area->P3();
+        temp2 = *area->P4();
+    }
+    else if (p1p3 >= p1p2 && p1p3 >= p1p4) {
+        temp1 = *area->P2();
+        temp2 = *area->P4();
+    }
+    else if (p1p4 >= p1p2 && p1p4 >= p1p3) {
+        temp1 = *area->P2();
+        temp2 = *area->P3();
+    }
+
+    Vector3<float> toTemp1 = temp1 - *area->P1();
+    float width = toTemp1.norm();
+    Vector3<float> toTemp2 = temp2 - *area->P1();
+    float height = toTemp2.norm();
+
+    Vector3<float> intensity = {0, 0, 0};
+
+    for (int i = 0; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+            Vector3<float> dir = (toTemp1.normalized() * i) + (toTemp2.normalized() * j);
+
+            intensity += get_intensity(
+                get_hit(),
+                sha,
+                dir,
+                sha->get_phong_coefficient());
+        }
+    }
+
+    return intensity / (width * height);
 }
 
 /// Hit point getter

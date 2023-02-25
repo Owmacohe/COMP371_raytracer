@@ -14,7 +14,7 @@ public:
     virtual Vector3<float> *get_diffuse_intensity(), *get_specular_intensity();
 protected:
     string type;
-    Vector3<float> *diffuse_intensity, *specular_intensity;
+    Vector3<float> *diffuse_intensity, *specular_intensity; // TODO: how to use these?
 };
 
 class Point : public Light {
