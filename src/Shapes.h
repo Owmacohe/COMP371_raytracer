@@ -36,7 +36,6 @@ public:
     Vector3<float> *A(), *B(), *C(), *get_normal();
 private:
     Vector3<float> *a, *b, *c, *normal;
-    bool is_second_triangle;
 };
 
 class Rectangle : public Shape {
@@ -52,6 +51,7 @@ public:
     Triangle *getT1(), *getT2();
     Vector3<float> *A(), *B(), *C(), *D(), *get_normal();
 private:
+    Vector3<float> *normal;
     Triangle *t1, *t2;
 };
 

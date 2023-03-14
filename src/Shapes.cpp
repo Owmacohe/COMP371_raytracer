@@ -81,31 +81,34 @@ float Shape::get_phong_coefficient() { return phong_coefficient; }
 Triangle::Triangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3,
             Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
             float amb_coe, float diff_coe, float spec_coe,
-            float phong_coe, Vector3<float>* normal_override, bool is_second) :
-        Shape("Triangle", amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe),
-        a(p1), b(p2), c(p3),
-        is_second_triangle(is_second) {
+            float phong_coe, Vector3<float>* normal_override, bool copy_vectors) :
+        Shape("Triangle",
+            copy_vectors ? new Vector3<float>(*amb_col) : amb_col,
+            copy_vectors ? new Vector3<float>(*diff_col) : diff_col,
+            copy_vectors ? new Vector3<float>(*spec_col) : spec_col,
+            amb_coe, diff_coe, spec_coe, phong_coe),
+        a(copy_vectors ? new Vector3<float>(*p1) : p1),
+        b(copy_vectors ? new Vector3<float>(*p2) : p2),
+        c(copy_vectors ? new Vector3<float>(*p3) : p3) {
     // Making sure both Triangles have the same normal
     normal = (normal_override == NULL)
         ? new Vector3<float>((*b - *a).cross(*c - *a).normalized())
-        : normal_override;
+        : new Vector3<float>(*normal_override);
 }
 
 /// Triangle destructor
 Triangle::~Triangle() {
-    if (!is_second_triangle) {
-        delete a;
-        a = NULL;
+    delete a;
+    a = NULL;
 
-        delete b;
-        b = NULL;
-
-        delete normal;
-        normal = NULL;
-    }
+    delete b;
+    b = NULL;
 
     delete c;
     c = NULL;
+
+    delete normal;
+    normal = NULL;
 
     cout << "delete TRIANGLE" << endl;
 }
@@ -155,7 +158,7 @@ Rectangle::Rectangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3,
         float amb_coe, float diff_coe, float spec_coe,
         float phong_coe) :
     Shape("Rectangle", amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe),
-    t1(new Triangle(p1, p2, p3, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, NULL, false)) {
+    t1(new Triangle(p1, p2, p3, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, NULL, true)) {
 
     // Checking to see where the hypotenuse is
     float p1p2 = (*p1 - *p2).norm();
@@ -164,14 +167,31 @@ Rectangle::Rectangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3,
 
     // Creating the second triangle along the hypotenuse
     if (p1p2 >= p2p3 && p1p2 >= p3p1) {
-        t2 = new Triangle(p1, p2, p4, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, t1->get_normal(), true);
+        t2 = new Triangle(
+            p1, p2, p4,
+            amb_col, diff_col, spec_col,
+            amb_coe, diff_coe, spec_coe, phong_coe,
+            t1->get_normal(),
+            true);
     }
     else if (p2p3 >= p1p2 && p2p3 >= p3p1) {
-        t2 = new Triangle(p2, p3, p4, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, t1->get_normal(), true);
+        t2 = new Triangle(
+            p2, p3, p4,
+            amb_col, diff_col, spec_col,
+            amb_coe, diff_coe, spec_coe, phong_coe,
+            t1->get_normal(),
+            true);
     }
     else if (p3p1 >= p1p2 && p3p1 >= p2p3) {
-        t2 = new Triangle(p3, p1, p4, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, t1->get_normal(), true);
+        t2 = new Triangle(
+            p3, p1, p4,
+            amb_col, diff_col, spec_col,
+            amb_coe, diff_coe, spec_coe, phong_coe,
+            t1->get_normal(),
+            true);
     }
+
+    normal = new Vector3<float>((*B() - *A()).cross(*C() - *A()).normalized()); // TODO: is this wrong?
 }
 
 /// Rectangle destructor
@@ -181,6 +201,9 @@ Rectangle::~Rectangle() {
 
     delete t2;
     t2 = NULL;
+
+    delete normal;
+    normal = NULL;
 
     cout << "delete RECTANGLE" << endl;
 }
@@ -252,7 +275,7 @@ Vector3<float> *Shape3D::get_origin() { return origin; }
 
 
 
-/* ### Sphere $$$ */
+/* ### Sphere ### */
 
 /// Sphere class constructor
 /// \param o The origin of the shape

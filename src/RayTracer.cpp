@@ -10,7 +10,7 @@ RayTracer::RayTracer(json js) : j(new json(js)) { }
 
 /// RayTracer destructor
 RayTracer::~RayTracer() {
-    // TODO: figure out why these deletes are causing errors...
+    cout << endl;
 
     delete j;
     j = NULL;
@@ -67,13 +67,18 @@ void RayTracer::run() {
     lights = parse_lights();
     outputs = parse_outputs();
 
+    cout << endl;
+
     for (Output *o : outputs) {
-        for (Shape *s : shapes)
+        for (Shape *s : shapes) {
             o->get_image()->raycast(
                 o->get_camera(),
                 s,
                 lights,
                 true, false, true);
+
+            cout << "Rendered: " << s->getType() << endl;
+        }
 
         cout << endl << "[" << o->get_image()->get_name() << "] number of hits: " << o->get_image()->get_number_of_hits() << endl;
     }
@@ -385,15 +390,17 @@ void Image::raycast(Camera *cam, Shape *sha, vector<Light*> li, bool save, bool 
                                 sha,
                                 *dynamic_cast<Point*>(k)->get_origin(),
                                 sha->get_phong_coefficient());
+                        /*
                         else if (k->get_type() == "Area")
                             intensity += ray->get_area_intensity(
                                 ray->get_hit(),
                                 sha,
                                 dynamic_cast<Area*>(k),
                                 sha->get_phong_coefficient());
+                        */
                     }
 
-                    intensity /= li.size();
+                    intensity /= li.size(); // TODO: should I average them?
 
                     buffer->at(index + 0) = intensity.x();
                     buffer->at(index + 1) = intensity.y();
@@ -566,7 +573,7 @@ Vector3<float> Ray::get_intensity(Vector3<float> *hit, Shape *sha, Vector3<float
         N = *dynamic_cast<Triangle*>(sha)->get_normal();
     }
     else if (sha->getType() == "Rectangle") {
-        N = *dynamic_cast<Rectangle*>(sha)->get_normal();
+        N = -*dynamic_cast<Rectangle*>(sha)->get_normal();
     }
     else if (sha->getType() == "Sphere") {
         N = (*hit - *dynamic_cast<Sphere*>(sha)->get_origin()).normalized();
@@ -580,9 +587,10 @@ Vector3<float> Ray::get_intensity(Vector3<float> *hit, Shape *sha, Vector3<float
     if (lambertian > 0) {
         Vector3<float> R = (-L) - 2 * ((-L).dot(N)) * N;
         Vector3<float> V = (-*hit).normalized();
+        Vector3<float> H = (L + V) / (L + V).norm();
 
         // Getting the specular
-        float specAngle = clamp(R.dot(V), 0);
+        float specAngle = clamp(H.dot(N), 0);
         specular = pow(specAngle, shininess);
     }
 
