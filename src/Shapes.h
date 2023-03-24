@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 
 using namespace std;
+using Eigen::Vector2;
 using Eigen::Vector3;
 
 class Shape {
@@ -28,7 +29,8 @@ public:
     Triangle(Vector3<float>*, Vector3<float>*, Vector3<float>*,
         Vector3<float>*, Vector3<float>*, Vector3<float>*,
         float, float, float,
-        float, Vector3<float>*, bool);
+        float,
+        Vector3<float>*, bool);
     ~Triangle();
 
     friend ostream& operator<<(ostream &strm, const Triangle &t);
@@ -51,7 +53,7 @@ public:
     Triangle *getT1(), *getT2();
     Vector3<float> *A(), *B(), *C(), *D(), *get_normal();
 private:
-    Vector3<float> *normal;
+    Vector3<float> *a, *b, *c, *d, *normal;
     Triangle *t1, *t2;
 };
 
