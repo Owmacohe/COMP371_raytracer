@@ -73,18 +73,17 @@ void RayTracer::run() {
         for (Shape *s : shapes) {
             o->get_image()->raycast(
                 o->get_camera(),
+                o->get_image(),
                 s,
                 lights,
-                true, false, true,
+                false, true,
                 shapes);
 
             cout << "Rendered: " << s->getType() << endl;
         }
 
-        cout << endl << "[" << o->get_image()->get_name() << "] number of hits: " << o->get_image()->get_number_of_hits() << endl;
+        cout << endl << "[" << o->get_image()->get_name() << "] number of hits: " << o->get_image()->get_number_of_hits() << endl << endl;
     }
-
-    cout << endl;
 }
 
 /// Parser for the geometry elements
@@ -103,33 +102,17 @@ vector<Shape*> RayTracer::parse_geometry() {
             cout << "Fatal error: geometry should always contain a type!!!" << endl;
         }
 
-        if (type == "triangle") {
-            cout << "TRIANGLE" << endl;
-
-            temp.push_back(new Triangle(
-                new Vector3<float>((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
-                new Vector3<float>((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
-                new Vector3<float>((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
-                new Vector3<float>((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
-                new Vector3<float>((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
-                new Vector3<float>((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
-                (*itr)["ka"], (*itr)["kd"], (*itr)["ks"],
-                (*itr)["pc"],
-                NULL,
-                false
-            ));
-        }
-        else if (type == "rectangle") {
+        if (type == "rectangle") {
             cout << "RECTANGLE" << endl;
 
             temp.push_back(new Rectangle(
-                new Vector3<float>((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
-                new Vector3<float>((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
-                new Vector3<float>((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
-                new Vector3<float>((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
-                new Vector3<float>((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
-                new Vector3<float>((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
-                new Vector3<float>((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
+                new Vector3f((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
+                new Vector3f((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
+                new Vector3f((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
+                new Vector3f((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
+                new Vector3f((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
+                new Vector3f((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
+                new Vector3f((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
                 (*itr)["ka"], (*itr)["kd"], (*itr)["ks"],
                 (*itr)["pc"]
             ));
@@ -138,11 +121,11 @@ vector<Shape*> RayTracer::parse_geometry() {
             cout << "SPHERE" << endl;
 
             temp.push_back(new Sphere(
-                new Vector3<float>((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
+                new Vector3f((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
                 (*itr)["radius"].get<float>(),
-                new Vector3<float>((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
-                new Vector3<float>((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
-                new Vector3<float>((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
+                new Vector3f((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
+                new Vector3f((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
+                new Vector3f((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
                 (*itr)["ka"], (*itr)["kd"], (*itr)["ks"],
                 (*itr)["pc"]
             ));
@@ -172,21 +155,21 @@ vector<Light*> RayTracer::parse_lights() {
             cout << "POINT LIGHT" << endl;
 
             temp.push_back(new Point(
-                new Vector3<float>((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
-                new Vector3<float>((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
-                new Vector3<float>((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2])
+                new Vector3f((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
+                new Vector3f((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
+                new Vector3f((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2])
             ));
         }
         else if (type == "area") {
             cout << "AREA LIGHT" << endl;
 
             temp.push_back(new Area(
-                new Vector3<float>((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
-                new Vector3<float>((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
-                new Vector3<float>((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
-                new Vector3<float>((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
-                new Vector3<float>((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
-                new Vector3<float>((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2]),
+                new Vector3f((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
+                new Vector3f((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
+                new Vector3f((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
+                new Vector3f((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
+                new Vector3f((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
+                new Vector3f((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2]),
                 (*itr)["n"], (*itr)["usecenter"]
             ));
         }
@@ -225,19 +208,27 @@ vector<Output*> RayTracer::parse_outputs() {
         bool globalillum = false;
         if ((*itr).contains("globalillum")) globalillum = (*itr)["globalillum"];
 
+        int maxbounces = 0;
+        if ((*itr).contains("maxbounces")) maxbounces = (*itr)["maxbounces"];
+
+        float probterminate = 0;
+        if ((*itr).contains("probterminate")) probterminate = (*itr)["probterminate"];
+
         img = new Image(
             (*itr)["filename"],
             (*itr)["size"][0], (*itr)["size"][1],
-            new Vector3<float>((*itr)["ai"][0],(*itr)["ai"][1],(*itr)["ai"][2]),
-            new Vector3<float>((*itr)["bkc"][0],(*itr)["bkc"][1],(*itr)["bkc"][2]),
+            new Vector3f((*itr)["ai"][0],(*itr)["ai"][1],(*itr)["ai"][2]),
+            new Vector3f((*itr)["bkc"][0],(*itr)["bkc"][1],(*itr)["bkc"][2]),
             raysperpixel,
             antialiasing,
-            globalillum);
+            globalillum,
+            maxbounces,
+            probterminate);
 
         cam = new Camera(
-            new Vector3<float>((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
-            new Vector3<float>((*itr)["lookat"][0], (*itr)["lookat"][1], (*itr)["lookat"][2]),
-            new Vector3<float>((*itr)["up"][0], (*itr)["up"][1], (*itr)["up"][2]),
+            new Vector3f((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
+            new Vector3f((*itr)["lookat"][0], (*itr)["lookat"][1], (*itr)["lookat"][2]),
+            new Vector3f((*itr)["up"][0], (*itr)["up"][1], (*itr)["up"][2]),
             (*itr)["fov"]);
 
         temp.push_back(new Output(cam, img));
@@ -255,54 +246,42 @@ vector<Output*> RayTracer::parse_outputs() {
 /// \param n Normal of the triangle
 /// \param out Camera-to-image-plane outgoing vector
 /// \return The 3D hit point of the triangle raycast
-Vector3<float> get_triangle_raycast(Vector3<float> *o, Vector3<float> *n, Vector3<float> out) {
-    float t = -(o->dot(*n) - 4) / (out.dot(*n));
-    return *o + (out * t);
+Vector3f triangle_intersect(Vector3f o, Vector3f n, Vector3f out) {
+    float t = -(o.dot(n) - 4) / (out.dot(n));
+    return o + (out * t);
 }
 
 /// Ray class constructor
-/// \param img Image to raycast into
-/// \param cam Camera to raycast from
-/// \param base Base vector to offset from
 /// \param sha Shape to raycast at
-/// \param x_index Horizontal index of the raycast
-/// \param y_index Vertical index of the raycast
-Ray::Ray(Image *img, Camera *cam, Vector3<float> base, Shape *sha, Vector2<float> indices, Vector2<float> offset) {
-    float pixel_size = img->get_pixel_size(cam);
-
-    Vector3<float> out =
-        base +
-        (*cam->get_up() * ((-indices[1] + offset[1]) * pixel_size + (pixel_size / 2))) +
-        (*cam->get_side() * ((indices[0] + offset[0]) * pixel_size + (pixel_size / 2)));
+Ray::Ray(Vector3f origin, Vector3f ray, Shape *sha, bool global) {
+    Vector3f dir = ray.normalized();
 
     // Checking to see which shape we are raycasting at, so we can hit it properly
-    if (sha->getType() == "Triangle") {
-        Triangle *tri = dynamic_cast<Triangle*>(sha);
-
-        raycast = new Vector3<float>(get_triangle_raycast(cam->get_origin(), tri->get_normal(), out));
-
-        does_hit = hit_triangle(*raycast, tri, true);
-    }
     if (sha->getType() == "Rectangle") {
         Rectangle *rec = dynamic_cast<Rectangle*>(sha);
 
-        raycast = new Vector3<float>(get_triangle_raycast(cam->get_origin(), rec->getT1()->get_normal(), out));
-        does_hit = hit_triangle(*raycast, rec->getT1(), true);
+        float t;
 
-        if (!does_hit) {
-            delete raycast;
-            raycast = NULL;
-
-            raycast = new Vector3<float>(get_triangle_raycast(cam->get_origin(), rec->getT2()->get_normal(), out));
-            does_hit = hit_triangle(*raycast, rec->getT2(), true);
+        if (global) {
+            t = (*rec->A() - origin).dot(*rec->get_normal()) / dir.dot(*rec->get_normal());
+            raycast = new Vector3f(origin + t * dir);
         }
+        else {
+            raycast = new Vector3f(triangle_intersect(origin, *rec->getT1()->get_normal(), ray));
+        }
+
+        does_hit = hit_triangle(*raycast, rec->getT1());
+
+        if (!does_hit) does_hit = hit_triangle(*raycast, rec->getT2());
     }
     else if (sha->getType() == "Sphere") {
-        raycast = new Vector3<float>(out);
+        raycast = new Vector3f(ray);
 
-        Sphere *sph = dynamic_cast<Sphere*>(sha);
-
-        does_hit = hit_sphere(*cam->get_origin(), raycast->normalized(), sph, true);
+        does_hit = hit_sphere(
+            origin,
+            dir,
+            dynamic_cast<Sphere*>(sha)
+        );
     }
 }
 
@@ -323,14 +302,14 @@ Ray::~Ray() {
 /// \param p2 The second point of the line
 /// \param n The normal of the line
 /// \return Whether the ray is on the right of the line
-bool is_on_right(Vector3<float> ray, Vector3<float> p1, Vector3<float> p2, Vector3<float> n) {
+bool is_on_right(Vector3f ray, Vector3f p1, Vector3f p2, Vector3f n) {
     return ((p1 - p2).cross(ray - p2)).dot(n) > 0;
 }
 
 /// Method to see if the raycast hits a triangle
 /// \param tri Triangle to hit
 /// \return Whether the ray does hit
-bool Ray::hit_triangle(Vector3<float> check, Triangle *tri, bool update_hit) {
+bool Ray::hit_triangle(Vector3f check, Triangle *tri) {
     bool ba = is_on_right(check, *tri->B(), *tri->A(), *tri->get_normal());
     bool cb = is_on_right(check, *tri->C(), *tri->B(), *tri->get_normal());
     bool ac = is_on_right(check, *tri->A(), *tri->C(), *tri->get_normal());
@@ -338,7 +317,7 @@ bool Ray::hit_triangle(Vector3<float> check, Triangle *tri, bool update_hit) {
     // Only hits if it's on the same side as all the triangle's lines
     bool temp = (ba == cb) && (cb == ac);
 
-    if (temp && update_hit) hit = raycast;
+    if (temp) hit = raycast;
 
     return temp;
 }
@@ -347,8 +326,8 @@ bool Ray::hit_triangle(Vector3<float> check, Triangle *tri, bool update_hit) {
 /// \param o Origin of the raycast
 /// \param sph Sphere to hit
 /// \return Whether the ray does hit
-bool Ray::hit_sphere(Vector3<float> o, Vector3<float> dir, Sphere *sph, bool update_hit) {
-    Vector3<float> toSphere = o - *sph->get_origin();
+bool Ray::hit_sphere(Vector3f o, Vector3f dir, Sphere *sph) {
+    Vector3f toSphere = o - *sph->get_origin();
 
     // Getting the components of the quadratic formula
     float a = dir.dot(dir);
@@ -362,10 +341,8 @@ bool Ray::hit_sphere(Vector3<float> o, Vector3<float> dir, Sphere *sph, bool upd
     float root1 = (-b + sqrt(determinant)) / (2 * a);
     float root2 = (-b - sqrt(determinant)) / (2 * a);
 
-    if (update_hit) {
-        // Finding which root is closer (the hit which will be displayed)
-        hit = new Vector3<float>(o + dir * (root1 < root2 ? root1 : root2));
-    }
+    // Finding which root is closer (the hit which will be displayed)
+    hit = new Vector3f(o + dir * (root1 < root2 ? root1 : root2));
 
     return determinant >= 0;
 }
@@ -398,68 +375,51 @@ float clamp(float f, float min, float max) {
 /// \param poi The light source point
 /// \param shininess The amount of shine
 /// \return An RGB intensity for the given raycast
-Vector3<float> Ray::get_intensity(
-        Vector3<float> *hit,
+Vector3f Ray::get_intensity(
+        Vector3f *hit,
         Shape *sha,
-        Vector3<float> poi,
+        Vector3f poi,
         float shininess,
         vector<Shape*> all_shapes) {
+    /*
     bool hits = false;
 
     for (Shape* i : all_shapes) {
         if (i != sha) {
             // TODO: do proper local illumination shadows
 
-            /*
-            if (i->getType() == "Triangle") {
-                Triangle* temp = dynamic_cast<Triangle*>(i);
-                hits = hit_triangle(get_triangle_raycast(hit, temp->get_normal(), poi - *hit), temp);
-            }
-            else if (i->getType() == "Rectangle") {
-                Rectangle* temp = dynamic_cast<Rectangle*>(i);
+            if (i->getType() == "Rectangle") {
 
-                hits = hit_triangle(
-                        get_triangle_raycast(hit, temp->get_normal(), poi - *hit),
-                        temp->getT1()
-                );
-
-                if (!hits)
-                    hits = hit_triangle(
-                            get_triangle_raycast(hit, temp->get_normal(), poi - *hit),
-                            temp->getT2()
-                    );
             }
             else if (i->getType() == "Sphere") {
-                hits = hit_sphere(*hit, (poi - *hit).normalized(), dynamic_cast<Sphere*>(i), false);
-            }
-            */
 
-            if (hits) return { 0, 0, 0 };
+            }
+
+            //if (hits) cout << sha->getType() << endl;
+            if (hits) return Vector3f(0, 0, 0);
         }
     }
+    */
 
-    Vector3<float> N;
+    Vector3f N;
 
     // Get the respective normal
-    if (sha->getType() == "Triangle") {
-        N = -*dynamic_cast<Triangle*>(sha)->get_normal();
-    }
-    else if (sha->getType() == "Rectangle") {
+    if (sha->getType() == "Rectangle") {
         N = -*dynamic_cast<Rectangle*>(sha)->get_normal();
     }
     else if (sha->getType() == "Sphere") {
         N = (*hit - *dynamic_cast<Sphere*>(sha)->get_origin()).normalized();
     }
 
-    Vector3<float> L = (poi - *hit).normalized(); // Direction from the hit to the light source
+    Vector3f L = (poi - *hit).normalized(); // Direction from the hit to the light source
 
     float lambertian = clamp(N.dot(L), 0); // Setting up Lambert's cosine law
     float specular;
 
     if (lambertian > 0) {
-        Vector3<float> R = (-L) - 2 * ((-L).dot(N)) * N;
-        Vector3<float> V = (-*hit).normalized();
-        Vector3<float> H = (L + V) / (L + V).norm();
+        Vector3f R = (-L) - 2 * ((-L).dot(N)) * N;
+        Vector3f V = (-*hit).normalized();
+        Vector3f H = (L + V) / (L + V).norm();
 
         // Getting the specular
         float specAngle = clamp(H.dot(N), 0);
@@ -467,11 +427,11 @@ Vector3<float> Ray::get_intensity(
     }
 
     // Getting the three light/colour values
-    Vector3<float> amb = sha->get_ambient_coefficient() * *sha->get_ambient_colour();
-    Vector3<float> diff = sha->get_diffuse_coefficient() * lambertian * *sha->get_diffuse_colour();
-    Vector3<float> spec = sha->get_specular_coefficient() * specular * *sha->get_specular_colour();
+    Vector3f amb = sha->get_ambient_coefficient() * *sha->get_ambient_colour();
+    Vector3f diff = sha->get_diffuse_coefficient() * lambertian * *sha->get_diffuse_colour();
+    Vector3f spec = sha->get_specular_coefficient() * specular * *sha->get_specular_colour();
 
-    Vector3<float> intensity = amb + diff + spec;
+    Vector3f intensity = amb + diff + spec;
 
     // Clamping each intensity value between 0 and 1
     intensity.x() = clamp(intensity.x(), 0, 1);
@@ -483,10 +443,10 @@ Vector3<float> Ray::get_intensity(
 
 /// Hit point getter
 /// \return The hit point of the raycast
-Vector3<float> *Ray::get_hit() { return hit; }
+Vector3f *Ray::get_hit() { return hit; }
 /// Raycast vector getter
 /// \return The vector of the raycast
-Vector3<float> *Ray::get_raycast() { return raycast; }
+Vector3f *Ray::get_raycast() { return raycast; }
 /// Does hit getter
 /// \return Whether the raycast hits the shape
 bool Ray::get_does_hit() { return does_hit; }

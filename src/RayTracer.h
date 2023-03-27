@@ -13,8 +13,8 @@
 
 using namespace std;
 using namespace nlohmann;
-using Eigen::Vector2;
-using Eigen::Vector3;
+using Eigen::Vector2f;
+using Eigen::Vector3f;
 
 class Shape;
 class Triangle;
@@ -44,25 +44,25 @@ private:
     vector<Output*> outputs;
 };
 
-Vector3<float> get_triangle_raycast(Vector3<float>*, Vector3<float>*, Vector3<float>);
-bool is_on_right(Vector3<float>, Vector3<float>, Vector3<float>, Vector3<float>);
+Vector3f triangle_intersect(Vector3f, Vector3f, Vector3f);
+bool is_on_right(Vector3f, Vector3f, Vector3f, Vector3f);
 float clamp(float, float);
 float clamp(float, float, float);
 
 class Ray {
 public:
-    Ray(Image*, Camera*, Vector3<float>, Shape*, Vector2<float>, Vector2<float>);
+    Ray(Vector3f, Vector3f, Shape*, bool);
     ~Ray();
 
-    Vector3<float> get_intensity(Vector3<float>*, Shape*, Vector3<float>, float, vector<Shape*>);
+    Vector3f get_intensity(Vector3f*, Shape*, Vector3f, float, vector<Shape*>);
 
-    Vector3<float> *get_raycast();
-    Vector3<float> *get_hit();
+    Vector3f *get_raycast();
+    Vector3f *get_hit();
     bool get_does_hit();
 private:
-    bool hit_triangle(Vector3<float>, Triangle*, bool), hit_sphere(Vector3<float>, Vector3<float>, Sphere*, bool);
+    bool hit_triangle(Vector3f, Triangle*), hit_sphere(Vector3f, Vector3f, Sphere*);
 
-    Vector3<float> *raycast;
-    Vector3<float> *hit;
+    Vector3f *raycast;
+    Vector3f *hit;
     bool does_hit;
 };

@@ -12,7 +12,7 @@
 /// \param spec_coe Specular coefficient of the shape
 /// \param phong_coe Phone coefficient of the shape
 Shape::Shape(string t,
-        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+        Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
         float amb_coe, float diff_coe, float spec_coe,
         float phong_coe) :
     type(t),
@@ -40,13 +40,13 @@ string Shape::getType() { return type; }
 
 /// Ambient colour getter
 /// \return Ambient colour of the shape
-Vector3<float> *Shape::get_ambient_colour() { return ambient_colour; }
+Vector3f *Shape::get_ambient_colour() { return ambient_colour; }
 /// Diffuse colour getter
 /// \return Diffuse colour of the shape
-Vector3<float> *Shape::get_diffuse_colour() { return diffuse_colour; }
+Vector3f *Shape::get_diffuse_colour() { return diffuse_colour; }
 /// Specular colour getter
 /// \return Specular colour of the shape
-Vector3<float> *Shape::get_specular_colour() { return specular_colour; }
+Vector3f *Shape::get_specular_colour() { return specular_colour; }
 
 /// Ambient coefficient getter
 /// \return Ambient coefficient of the shape
@@ -77,50 +77,20 @@ float Shape::get_phong_coefficient() { return phong_coefficient; }
 /// \param diff_coe Diffuse coefficient of the shape
 /// \param spec_coe Specular coefficient of the shape
 /// \param phong_coe Phone coefficient of the shape
-Triangle::Triangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3,
-            Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+Triangle::Triangle(Vector3f *p1, Vector3f *p2, Vector3f *p3,
+            Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
             float amb_coe, float diff_coe, float spec_coe,
             float phong_coe,
-            Vector3<float>* normal_override, bool copy_vectors) :
+            Vector3f *n) :
         Shape("Triangle",
-            copy_vectors ? new Vector3<float>(*amb_col) : amb_col,
-            copy_vectors ? new Vector3<float>(*diff_col) : diff_col,
-            copy_vectors ? new Vector3<float>(*spec_col) : spec_col,
-            amb_coe, diff_coe, spec_coe, phong_coe) {
-    if (normal_override == NULL) {
-        // Checking to see where the hypotenuse is
-        float p1p2 = (*p1 - *p2).norm();
-        float p2p3 = (*p2 - *p3).norm();
-        float p3p1 = (*p3 - *p1).norm();
-
-        // Creating the second triangle along the hypotenuse
-        if (p1p2 >= p2p3 && p1p2 >= p3p1) {
-            a = copy_vectors ? new Vector3<float>(*p3) : p3;
-            b = copy_vectors ? new Vector3<float>(*p1) : p2;
-            c = copy_vectors ? new Vector3<float>(*p2) : p2;
-        }
-        else if (p2p3 >= p1p2 && p2p3 >= p3p1) {
-            a = copy_vectors ? new Vector3<float>(*p1) : p1;
-            b = copy_vectors ? new Vector3<float>(*p2) : p2;
-            c = copy_vectors ? new Vector3<float>(*p3) : p3;
-        }
-        else if (p3p1 >= p1p2 && p3p1 >= p2p3) {
-            a = copy_vectors ? new Vector3<float>(*p2) : p2;
-            b = copy_vectors ? new Vector3<float>(*p1) : p1;
-            c = copy_vectors ? new Vector3<float>(*p3) : p3;
-        }
-    }
-    else {
-        a = copy_vectors ? new Vector3<float>(*p1) : p1;
-        b = copy_vectors ? new Vector3<float>(*p2) : p2;
-        c = copy_vectors ? new Vector3<float>(*p3) : p3;
-    }
-
-    // Making sure both Triangles have the same normal
-    normal = (normal_override == NULL)
-        ? new Vector3<float>((*b - *a).cross(*c - *a).normalized())
-        : new Vector3<float>(*normal_override);
-}
+            new Vector3f(*amb_col),
+            new Vector3f(*diff_col),
+            new Vector3f(*spec_col),
+            amb_coe, diff_coe, spec_coe, phong_coe),
+        a(new Vector3f(*p1)),
+        b(new Vector3f(*p2)),
+        c(new Vector3f(*p3)),
+        normal(new Vector3f(*n)) { }
 
 /// Triangle destructor
 Triangle::~Triangle() {
@@ -152,16 +122,16 @@ ostream& operator<<(ostream &strm, const Triangle &t) {
 
 /// First point getter
 /// \return First point
-Vector3<float> *Triangle::A() { return a; }
+Vector3f *Triangle::A() { return a; }
 /// Second point getter
 /// \return Second point
-Vector3<float> *Triangle::B() { return b; }
+Vector3f *Triangle::B() { return b; }
 /// Third point getter
 /// \return Third point
-Vector3<float> *Triangle::C() { return c; }
+Vector3f *Triangle::C() { return c; }
 /// Normal getter
 /// \return Normal to the plane
-Vector3<float> *Triangle::get_normal() { return normal; }
+Vector3f *Triangle::get_normal() { return normal; }
 
 
 
@@ -179,15 +149,15 @@ Vector3<float> *Triangle::get_normal() { return normal; }
 /// \param diff_coe Diffuse coefficient of the shape
 /// \param spec_coe Specular coefficient of the shape
 /// \param phong_coe Phone coefficient of the shape
-Rectangle::Rectangle(Vector3<float> *p1, Vector3<float> *p2, Vector3<float> *p3, Vector3<float> *p4,
-        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+Rectangle::Rectangle(Vector3f *p1, Vector3f *p2, Vector3f *p3, Vector3f *p4,
+        Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
         float amb_coe, float diff_coe, float spec_coe,
         float phong_coe) :
     Shape("Rectangle", amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe),
     a(p1), b(p2), c(p3), d(p4) {
-    t1 = new Triangle(a, b, c, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, NULL, true);
-    t2 = new Triangle(d, t1->B(), t1->C(), amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, t1->get_normal(), true);
-    normal = new Vector3<float>(*t1->get_normal());
+    normal = new Vector3f(-(*b - *a).cross(*c - *a).normalized());
+    t1 = new Triangle(a, b, c, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, normal);
+    t2 = new Triangle(a, c, d, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, normal);
 }
 
 /// Rectangle destructor
@@ -225,19 +195,19 @@ Triangle *Rectangle::getT2() { return t2; }
 
 /// First point getter
 /// \return First point
-Vector3<float> *Rectangle::A() { return a; }
+Vector3f *Rectangle::A() { return a; }
 /// Second point getter
 /// \return Second point
-Vector3<float> *Rectangle::B() { return b; }
+Vector3f *Rectangle::B() { return b; }
 /// Third point getter
 /// \return Third point
-Vector3<float> *Rectangle::C() { return c; }
+Vector3f *Rectangle::C() { return c; }
 /// Fourth point getter
 /// \return Fourth point
-Vector3<float> *Rectangle::D() { return d; }
+Vector3f *Rectangle::D() { return d; }
 /// Normal getter
 /// \return Normal to the plane
-Vector3<float> *Rectangle::get_normal() { return t1->get_normal(); }
+Vector3f *Rectangle::get_normal() { return t1->get_normal(); }
 
 
 
@@ -253,8 +223,8 @@ Vector3<float> *Rectangle::get_normal() { return t1->get_normal(); }
 /// \param diff_coe Diffuse coefficient of the shape
 /// \param spec_coe Specular coefficient of the shape
 /// \param phong_coe Phone coefficient of the shape
-Shape3D::Shape3D(string t, Vector3<float> *o,
-        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+Shape3D::Shape3D(string t, Vector3f *o,
+        Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
         float amb_coe, float diff_coe, float spec_coe,
         float phong_coe) :
     Shape(t, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe), origin(o) { }
@@ -267,7 +237,7 @@ Shape3D::~Shape3D() {
 
 /// Origin getter
 /// \return The origin of the shape
-Vector3<float> *Shape3D::get_origin() { return origin; }
+Vector3f *Shape3D::get_origin() { return origin; }
 
 
 
@@ -283,8 +253,8 @@ Vector3<float> *Shape3D::get_origin() { return origin; }
 /// \param diff_coe Diffuse coefficient of the shape
 /// \param spec_coe Specular coefficient of the shape
 /// \param phong_coe Phone coefficient of the shape
-Sphere::Sphere(Vector3<float> *o, float r,
-        Vector3<float> *amb_col, Vector3<float> *diff_col, Vector3<float> *spec_col,
+Sphere::Sphere(Vector3f *o, float r,
+        Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
         float amb_coe, float diff_coe, float spec_coe,
         float phong_coe) :
     Shape3D("Sphere", o, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe), radius(r) { }
