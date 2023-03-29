@@ -83,9 +83,9 @@ Image::Image(
         antialiasing(anti), globalillum(global),
         maxbounces(max), probterminate(terminate) {
     for (int i = 0; i < buffer->size(); i += 3) {
-        buffer->at(i + 0) = background->x();
-        buffer->at(i + 1) = background->y();
-        buffer->at(i + 2) = background->z();
+        buffer->at(i + 0) = globalillum ? 0 : background->x();
+        buffer->at(i + 1) = globalillum ? 0 : background->y();
+        buffer->at(i + 2) = globalillum ? 0 : background->z();
     }
 }
 
@@ -187,29 +187,7 @@ void Image::local_raycast(
             if (ray->get_does_hit()) {
                 number_of_hits++;
 
-                Vector3f intensity(0, 0, 0);
-
-                for (Light* l : li) {
-                    if (l->get_type() == "Point") {
-                        intensity += ray->get_intensity(
-                            ray->get_hit(),
-                            sha,
-                            *dynamic_cast<Point *>(l)->get_origin(),
-                            sha->get_phong_coefficient(),
-                            all_shapes);
-                    } else if (l->get_type() == "Area") {
-                        Area *area = dynamic_cast<Area *>(l);
-
-                        intensity += ray->get_intensity(
-                            ray->get_hit(),
-                            sha,
-                            (*area->P3() - *area->P1()) / 2,
-                            sha->get_phong_coefficient(),
-                            all_shapes);
-                    }
-                }
-
-                intensity /= li.size();
+                Vector3f intensity = ray->get_average_intensity(ray->get_hit(), sha, all_shapes, li, false);
 
                 buffer->at(index + 0) = intensity.x();
                 buffer->at(index + 1) = intensity.y();
@@ -251,6 +229,32 @@ bool Image::check_probterminate() {
     return dist(rng) <= probterminate;
 }
 
+Vector3f Image::get_new_bounce_direction(Vector3f o, Vector3f n) {
+    random_device dev;
+    mt19937 rng(dev());
+    uniform_real_distribution<float> dist(0, 1);
+
+    float x = dist(rng);
+    float y = dist(rng);
+
+    while (pow(x, 2) + pow(y, 2) > 1) {
+        x = dist(rng);
+        y = dist(rng);
+    }
+
+    float z = sqrt(1 - pow(x, 2) - pow(y, 2));
+
+    Vector3f axis1 = n.cross(Vector3f(1, 0, 0)).normalized();
+    Vector3f axis2 = n.cross(axis1).normalized();
+
+    return (Vector3f(axis1.x() * x, n.y() * y, axis2.z() * z) - o).normalized(); // TODO: will this work?
+}
+
+float Image::get_cos_angle(Vector3f in, Vector3f out) {
+    float angle = acos(in.dot(out) / (in.norm() * out.norm()));
+    return cos(angle);
+}
+
 void Image::global_raycast(
         Camera *cam,
         Image *img,
@@ -268,7 +272,7 @@ void Image::global_raycast(
         (*cam->get_up() * alpha) -
         (*cam->get_side() * alpha * aspect);
 
-    Vector3f* last_hit;
+    Vector3f *last_hit, *last_normal, *last_dir;
 
     int num_cells_x = 1;
     int num_cells_y = 1;
@@ -299,11 +303,14 @@ void Image::global_raycast(
         for (int i = 0; i < width; i++) {
             int index = (3 * j * width) + (3 * i);
 
-            Vector3f average_colour(0, 0, 0);
+            vector<Vector3f> sample_colours;
+            bool did_all_miss = true;
 
             for (int current_cell_x = 0; current_cell_x < num_cells_x; current_cell_x++) {
                 for (int current_cell_y = 0; current_cell_y < num_cells_y; current_cell_y++) {
                     for (int current_ray = 0; current_ray < num_rays; current_ray++) {
+                        Vector3f average_colour(0, 0, 0);
+
                         // Creating and shooting the raycast
                         Ray *ray = new Ray(
                             *cam->get_origin(),
@@ -314,72 +321,131 @@ void Image::global_raycast(
                                 Vector2f(i, j),
                                 pixel_size),
                             sha,
-                            true
+                            false
                         );
-
-                        last_hit = new Vector3f(*ray->get_hit());
-
-                        int bounces = 0;
 
                         // Saving the pixel information to the PPM buffer if it does hit
                         if (ray->get_does_hit()) {
                             number_of_hits++;
 
+                            did_all_miss = false;
+
+                            last_hit = new Vector3f(*ray->get_hit());
+                            last_normal = new Vector3f(*ray->get_hit_normal());
+                            last_dir = new Vector3f((*ray->get_hit() - *cam->get_origin()).normalized());
+
+                            average_colour += ray->get_average_intensity(last_hit, sha, all_shapes, li, true);
+
+                            int bounces = 0;
+
                             while (bounces < maxbounces && check_probterminate()) {
                                 bounces++;
 
-                                Vector3f new_dir; // TODO: calculate bounces
+                                Ray *bounce_ray;
+                                float min;
+                                Vector3f new_dir = get_new_bounce_direction(*last_hit, *last_normal);
 
-                                Ray *bounce_ray = new Ray(
-                                    *last_hit,
-                                    new_dir,
-                                    sha,
-                                    true
-                                );
+                                for (int k = 0; k < all_shapes.size(); k++) {
+                                    Ray *temp_ray;
+
+                                    temp_ray = new Ray(
+                                        *last_hit,
+                                        new_dir,
+                                        all_shapes[k],
+                                        true
+                                    );
+
+                                    if (temp_ray->get_does_hit()) {
+                                        float distance = (*temp_ray->get_hit() - *last_hit).norm();
+
+                                        if (k == 0 || distance < min)
+                                            min = distance;
+
+                                        bounce_ray = temp_ray;
+                                    }
+                                    else {
+                                        if (k == 0) bounce_ray = temp_ray;
+
+                                        if (k < all_shapes.size() - 1) {
+                                            delete temp_ray;
+                                            temp_ray = NULL;
+                                        }
+                                    }
+                                }
+
+                                Vector3f temp = *last_dir;
+
+                                delete last_dir;
+                                last_dir = NULL;
+
+                                if (bounce_ray->get_does_hit())
+                                    last_dir = new Vector3f((*bounce_ray->get_hit() - temp).normalized());
 
                                 delete last_hit;
                                 last_hit = NULL;
 
+                                delete last_normal;
+                                last_normal = NULL;
+
                                 if (bounce_ray->get_does_hit()) {
                                     last_hit = new Vector3f(*bounce_ray->get_hit());
+                                    last_normal = new Vector3f(*bounce_ray->get_hit_normal());
 
-                                    // TODO: calculate light at each bounce (make sure to check for usecenter)
-                                    // TODO: multiply light through
+                                    Vector3f diffuse_colour = *bounce_ray->get_hit_shape()->get_diffuse_colour();
+
+                                    average_colour =
+                                        Vector3f(
+                                            average_colour.x() * diffuse_colour.x(),
+                                            average_colour.y() * diffuse_colour.y(),
+                                            average_colour.z() * diffuse_colour.z())
+                                        * get_cos_angle(-*last_dir, new_dir)
+                                        * bounce_ray->get_hit_shape()->get_diffuse_coefficient();
                                 }
                                 else {
-                                    // TODO: return 0, 0, 0
-                                    // TODO: include in calculation later
+                                    average_colour = Vector3f(0, 0, 0);
                                     break;
                                 }
 
                                 delete bounce_ray;
                                 bounce_ray = NULL;
                             }
-                        }
-                        else {
-                            // TODO: return 0, 0, 0
-                            // TODO: include in calculation later
-                        }
 
-                        if (true) { // TODO: if the last didn't miss
-                            // TODO: last ray goes to the light
-                        }
-                        else {
+                            // TODO: last ray goes to the light (random one if multiple)
+
                             delete last_hit;
                             last_hit = NULL;
+
+                            delete last_normal;
+                            last_normal = NULL;
+
+                            delete last_dir;
+                            last_dir = NULL;
+                        }
+                        else {
+                            average_colour = Vector3f(0, 0, 0);
                         }
 
                         delete ray;
                         ray = NULL;
+
+                        sample_colours.push_back(average_colour);
                     }
                 }
             }
 
-            //average_colour /= num_samples; // TODO: better average
+            if (!did_all_miss) {
+                Vector3f pixel_average(0, 0, 0);
 
-            buffer->at(index + 0) = average_colour.x();
-            buffer->at(index + 1) = average_colour.y();
-            buffer->at(index + 2) = average_colour.z();
+                for (Vector3f colour : sample_colours) {
+                    pixel_average += colour;
+                }
+
+                pixel_average /= sample_colours.size();
+
+                buffer->at(index + 0) = pixel_average.x();
+                buffer->at(index + 1) = pixel_average.y();
+                buffer->at(index + 2) = pixel_average.z();
+            }
         }
     }
 

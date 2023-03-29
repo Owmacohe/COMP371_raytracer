@@ -50,7 +50,7 @@
     ],
     "output":[
         {
-            "filename":"test_moved_down_global.ppm",
+            "filename":"test_moved_down_global 20.ppm",
             "size":[500,500],
             "lookat":[0,0,-1],
             "up":[0,1,0],
@@ -60,7 +60,7 @@
             "bkc":[1,1,1],
 
             "globalillum": true,
-            "raysperpixel": [1, 1],
+            "raysperpixel": [1, 20],
             "maxbounces": 3,
             "probterminate": 0.333
         }

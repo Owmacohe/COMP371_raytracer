@@ -258,21 +258,17 @@ Ray::Ray(Vector3f origin, Vector3f ray, Shape *sha, bool global) {
 
     // Checking to see which shape we are raycasting at, so we can hit it properly
     if (sha->getType() == "Rectangle") {
-        Rectangle *rec = dynamic_cast<Rectangle*>(sha);
-
-        float t;
+        Rectangle *rect = dynamic_cast<Rectangle*>(sha);
 
         if (global) {
-            t = (*rec->A() - origin).dot(*rec->get_normal()) / dir.dot(*rec->get_normal());
-            raycast = new Vector3f(origin + t * dir);
+            does_hit = hit_rectangle(origin, dir, rect);
         }
         else {
-            raycast = new Vector3f(triangle_intersect(origin, *rec->getT1()->get_normal(), ray));
+            raycast = new Vector3f(triangle_intersect(origin, *rect->getT1()->get_normal(), ray));
+
+            does_hit = hit_triangle(*raycast, rect->getT1());
+            if (!does_hit) does_hit = hit_triangle(*raycast, rect->getT2());
         }
-
-        does_hit = hit_triangle(*raycast, rec->getT1());
-
-        if (!does_hit) does_hit = hit_triangle(*raycast, rec->getT2());
     }
     else if (sha->getType() == "Sphere") {
         raycast = new Vector3f(ray);
@@ -283,6 +279,8 @@ Ray::Ray(Vector3f origin, Vector3f ray, Shape *sha, bool global) {
             dynamic_cast<Sphere*>(sha)
         );
     }
+
+    if (does_hit) hit_shape = sha;
 }
 
 /// Ray destructor
@@ -291,6 +289,9 @@ Ray::~Ray() {
         delete hit;
         hit = NULL;
     }
+
+    delete hit_normal;
+    hit_normal = NULL;
 
     delete raycast;
     raycast = NULL;
@@ -306,6 +307,37 @@ bool is_on_right(Vector3f ray, Vector3f p1, Vector3f p2, Vector3f n) {
     return ((p1 - p2).cross(ray - p2)).dot(n) > 0;
 }
 
+Vector3f project_to_plane(
+        Vector3f plane_point, Vector3f plane_normal,
+        Vector3f point_origin, Vector3f point_direction) {
+    float A = (plane_point - point_origin).dot(plane_normal);
+    float B = point_direction.dot(plane_normal);
+
+    Vector3f projection = point_origin + point_direction * (A / B);
+
+    if (B == 0) return projection;
+    else throw "No projection!";
+}
+
+bool Ray::hit_rectangle(Vector3f check_origin, Vector3f check_direction, Rectangle *rect) {
+    try {
+        Vector3f projection = project_to_plane(
+            *rect->A(),
+            *rect->get_normal(),
+            check_origin,
+            check_direction
+        );
+
+        raycast = new Vector3f(projection);
+
+        bool valid = hit_triangle(projection, rect->getT1());
+        if (!valid) valid = hit_triangle(projection, rect->getT2());
+
+        return valid;
+    }
+    catch (const char* msg) { return false; }
+}
+
 /// Method to see if the raycast hits a triangle
 /// \param tri Triangle to hit
 /// \return Whether the ray does hit
@@ -317,7 +349,10 @@ bool Ray::hit_triangle(Vector3f check, Triangle *tri) {
     // Only hits if it's on the same side as all the triangle's lines
     bool temp = (ba == cb) && (cb == ac);
 
-    if (temp) hit = raycast;
+    if (temp) {
+        hit = raycast;
+        hit_normal = new Vector3f(*tri->get_normal());
+    }
 
     return temp;
 }
@@ -343,6 +378,7 @@ bool Ray::hit_sphere(Vector3f o, Vector3f dir, Sphere *sph) {
 
     // Finding which root is closer (the hit which will be displayed)
     hit = new Vector3f(o + dir * (root1 < root2 ? root1 : root2));
+    hit_normal = new Vector3f((*hit - *sph->get_origin()).normalized());
 
     return determinant >= 0;
 }
@@ -379,8 +415,8 @@ Vector3f Ray::get_intensity(
         Vector3f *hit,
         Shape *sha,
         Vector3f poi,
-        float shininess,
-        vector<Shape*> all_shapes) {
+        vector<Shape*> all_shapes,
+        bool global) {
     /*
     bool hits = false;
 
@@ -423,7 +459,7 @@ Vector3f Ray::get_intensity(
 
         // Getting the specular
         float specAngle = clamp(H.dot(N), 0);
-        specular = pow(specAngle, shininess);
+        specular = pow(specAngle, sha->get_phong_coefficient());
     }
 
     // Getting the three light/colour values
@@ -431,7 +467,8 @@ Vector3f Ray::get_intensity(
     Vector3f diff = sha->get_diffuse_coefficient() * lambertian * *sha->get_diffuse_colour();
     Vector3f spec = sha->get_specular_coefficient() * specular * *sha->get_specular_colour();
 
-    Vector3f intensity = amb + diff + spec;
+    Vector3f intensity = diff;
+    if (!global) intensity += amb + spec;
 
     // Clamping each intensity value between 0 and 1
     intensity.x() = clamp(intensity.x(), 0, 1);
@@ -441,9 +478,45 @@ Vector3f Ray::get_intensity(
     return intensity;
 }
 
+Vector3f Ray::get_average_intensity(
+        Vector3f *hit,
+        Shape *sha,
+        vector<Shape*> all_shapes,
+        vector<Light*> all_lights,
+        bool global) {
+    Vector3f intensity(0, 0, 0);
+
+    for (Light* l : all_lights) {
+        if (l->get_type() == "Point") {
+            intensity += get_intensity(
+                hit,
+                sha,
+                *dynamic_cast<Point *>(l)->get_origin(),
+                all_shapes,
+                global);
+        }
+        else if (l->get_type() == "Area") {
+            Area *area = dynamic_cast<Area *>(l);
+
+            intensity += get_intensity(
+                hit,
+                sha,
+                (*area->P3() - *area->P1()) / 2, // TODO: make sure to check for usecenter
+                all_shapes,
+                global);
+        }
+    }
+
+    intensity /= all_lights.size();
+
+    return intensity;
+}
+
 /// Hit point getter
 /// \return The hit point of the raycast
 Vector3f *Ray::get_hit() { return hit; }
+Vector3f *Ray::get_hit_normal() { return hit_normal; }
+Shape *Ray::get_hit_shape() { return hit_shape; }
 /// Raycast vector getter
 /// \return The vector of the raycast
 Vector3f *Ray::get_raycast() { return raycast; }

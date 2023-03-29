@@ -42,6 +42,8 @@ private:
     Vector2f get_stratified_offset(float, float);
     Vector3f get_initial_outgoing_global_ray(Camera*, Vector2f, Vector3f, Vector2f, float);
     bool check_probterminate();
+    Vector3f get_new_bounce_direction(Vector3f, Vector3f);
+    float get_cos_angle(Vector3f, Vector3f);
     void global_raycast(Camera*, Image*, Shape*, vector<Light*>, bool, bool, vector<Shape*>);
 
     vector<double> *buffer;
