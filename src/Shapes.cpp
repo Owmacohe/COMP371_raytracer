@@ -31,7 +31,7 @@ Shape::~Shape() {
     delete specular_colour;
     specular_colour = NULL;
 
-    cout << "delete SHAPE" << endl;
+    //cout << "delete SHAPE" << endl;
 }
 
 /// Type getter
@@ -77,6 +77,7 @@ float Shape::get_phong_coefficient() { return phong_coefficient; }
 /// \param diff_coe Diffuse coefficient of the shape
 /// \param spec_coe Specular coefficient of the shape
 /// \param phong_coe Phone coefficient of the shape
+/// \param n Normal for the triangle
 Triangle::Triangle(Vector3f *p1, Vector3f *p2, Vector3f *p3,
             Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
             float amb_coe, float diff_coe, float spec_coe,
@@ -106,18 +107,7 @@ Triangle::~Triangle() {
     delete normal;
     normal = NULL;
 
-    cout << "delete TRIANGLE" << endl;
-}
-
-/// Triangle stream insertion operator
-/// \param strm Incoming stream
-/// \param t Triangle to insert
-/// \return Triangle information added to the stream
-ostream& operator<<(ostream &strm, const Triangle &t) {
-    return strm << "TRIANGLE" << endl
-                << "\tA: " << t.a->x() << " " << t.a->y() << " " << t.a->z() << " " << endl
-                << "\tB: " << t.b->x() << " " << t.b->y() << " " << t.b->z() << " " << endl
-                << "\tC: " << t.c->x() << " " << t.c->y() << " " << t.c->z();
+    //cout << "delete TRIANGLE" << endl;
 }
 
 /// First point getter
@@ -171,19 +161,7 @@ Rectangle::~Rectangle() {
     delete normal;
     normal = NULL;
 
-    cout << "delete RECTANGLE" << endl;
-}
-
-/// Rectangle stream insertion operator
-/// \param strm Incoming stream
-/// \param r Rectangle to insert
-/// \return Rectangle information added to the stream
-ostream& operator<<(ostream &strm, const Rectangle &r) {
-    return strm << "RECTANGLE" << endl
-                << "\tA: " << r.t1->A()->x() << " " << r.t1->A()->y() << " " << r.t1->A()->z() << " " << endl
-                << "\tB: " << r.t1->B()->x() << " " << r.t1->B()->y() << " " << r.t1->B()->z() << " " << endl
-                << "\tC: " << r.t1->C()->x() << " " << r.t1->C()->y() << " " << r.t1->C()->z() << " " << endl
-                << "\tD: " << r.t2->C()->x() << " " << r.t2->C()->y() << " " << r.t2->C()->z() << " " << endl;
+    //cout << "delete RECTANGLE" << endl;
 }
 
 /// Triangle 1 getter
@@ -261,17 +239,7 @@ Sphere::Sphere(Vector3f *o, float r,
 
 /// Sphere destructor
 Sphere::~Sphere() {
-    cout << "delete SPHERE" << endl;
-}
-
-/// Sphere stream insertion operator
-/// \param strm Incoming stream
-/// \param s Sphere to insert
-/// \return Sphere information added to the stream
-ostream& operator<<(ostream &strm, const Sphere &s) {
-    return strm << "SPHERE" << endl
-                << "\tOrigin: " << s.origin->x() << " " << s.origin->y() << " " << s.origin->z() << endl
-                << "\tRadius: " << s.radius;
+    //cout << "delete SPHERE" << endl;
 }
 
 /// Radius getter

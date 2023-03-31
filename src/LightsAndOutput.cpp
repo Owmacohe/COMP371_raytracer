@@ -1,5 +1,114 @@
 #include "Shapes.h"
 #include "LightsAndOutput.h"
+#include "RayTracer.h"
+
+/* ### Light ### */
+
+/// Light class constructor
+/// \param t Type of the light
+/// \param diff_int Diffuse intensity of the light
+/// \param spec_int Specular intensity of the light
+Light::Light(string t, Vector3f *diff_int, Vector3f *spec_int) :
+    type(t), diffuse_intensity(diff_int), specular_intensity(spec_int) { }
+
+/// Light destructor
+Light::~Light() {
+    delete diffuse_intensity;
+    diffuse_intensity = NULL;
+
+    delete specular_intensity;
+    specular_intensity = NULL;
+
+    //cout << "delete LIGHT" << endl;
+}
+
+/// Type getter
+/// \return Type of the light
+string Light::get_type() { return type; }
+/// Diffuse intensity getter
+/// \return Diffuse intensity of the light
+Vector3f *Light::get_diffuse_intensity() { return diffuse_intensity; }
+/// Specular intensity getter
+/// \return Specular intensity of the light
+Vector3f *Light::get_specular_intensity() { return specular_intensity; }
+
+
+
+/* ### Point ### */
+
+/// Point light class constructor
+/// \param o Origin of the light
+/// \param diff_int Diffuse intensity of the light
+/// \param spec_int Specular intensity of the light
+Point::Point(Vector3f *o, Vector3f *diff_int, Vector3f *spec_int) :
+    Light("Point", diff_int, spec_int), origin(o) { }
+
+/// Point light destructor
+Point::~Point() {
+    delete origin;
+    origin = NULL;
+
+    //cout << "delete POINT LIGHT" << endl;
+}
+
+/// Origin getter
+/// \return Origin of the light
+Vector3f *Point::get_origin() { return origin; }
+
+
+
+/* ### Area ### */
+
+/// Area light class constructor
+/// \param a First point
+/// \param b Second point
+/// \param c Third point
+/// \param d Fourth point
+/// \param diff_int Diffuse intensity of the light
+/// \param spec_int Specular intensity of the light
+/// \param stratified_n Stratification array
+/// \param center Whether or not to use the centre of the light for calculations
+Area::Area(
+    Vector3f* a, Vector3f* b, Vector3f* c, Vector3f* d,
+    Vector3f *diff_int, Vector3f *spec_int, int stratified_n, bool center) :
+    Light("Area", diff_int, spec_int),
+    p1(a), p2(b), p3(c), p4(d), n(stratified_n), usecenter(center) { }
+
+/// Area light constructor
+Area::~Area() {
+    delete p1;
+    p1 = NULL;
+
+    delete p2;
+    p2 = NULL;
+
+    delete p3;
+    p3 = NULL;
+
+    delete p4;
+    p4 = NULL;
+}
+
+/// First point getter
+/// \return First point
+Vector3f *Area::P1() { return p1; }
+/// Second point getter
+/// \return Second point
+Vector3f *Area::P2() { return p2; }
+/// Third point getter
+/// \return Third point
+Vector3f *Area::P3() { return p3; }
+/// Fourth point getter
+/// \return Fourth point
+Vector3f *Area::P4() { return p4; }
+/// Stratification array getter
+/// \return Stratification array
+int Area::get_n() { return n; }
+/// Use center getter
+/// \return Whether or not to use the centre of the light for calculations
+bool Area::get_usecenter() { return usecenter; }
+
+
 
 /* ### Camera ### */
 
@@ -7,12 +116,15 @@
 /// \param o Origin of the camera
 /// \param l LookAt vector of the camera
 /// \param u Up vector of the camera
+/// \param f FOV of the camera
 Camera::Camera(Vector3f *o, Vector3f *l, Vector3f *u, float f) :
     origin(o),
     look_at(l),
     up(u),
     side(new Vector3f(l->cross(*u).normalized())),
-    FOV(f) { }
+    FOV(f) {
+    //*o /= 5; // TODO: should I do this?
+}
 
 /// Camera destructor
 Camera::~Camera() {
@@ -28,19 +140,7 @@ Camera::~Camera() {
     delete side;
     side = NULL;
 
-    cout << "delete CAMERA" << endl;
-}
-
-/// Camera stream insertion operator
-/// \param strm Incoming stream
-/// \param c Camera to insert
-/// \return Camera information added to the stream
-ostream& operator<<(ostream &strm, const Camera &c) {
-    return strm << "CAMERA" << endl
-                << "\tOrigin: " << c.origin->x() << " " << c.origin->y() << " " << c.origin->z() << " " << endl
-                << "\tLook-At: " << c.look_at->x() << " " << c.look_at->y() << " " << c.look_at->z() << " " << endl
-                << "\tUp: " << c.up->x() << " " << c.up->y() << " " << c.up->z() << " " << endl
-                << "\tSide: " << c.side->x() << " " << c.side->y() << " " << c.side->z();
+    //cout << "delete CAMERA" << endl;
 }
 
 /// Origin getter
@@ -55,6 +155,8 @@ Vector3f *Camera::get_up() { return up; }
 /// Side vector getter
 /// \return Side vector of the camera
 Vector3f *Camera::get_side() { return side; }
+/// FOV getter
+/// \return FOV of the camera
 float Camera::get_FOV() const { return FOV; }
 
 
@@ -65,9 +167,13 @@ float Camera::get_FOV() const { return FOV; }
 /// \param n Name of the image
 /// \param w Width of the image
 /// \param h Height of the image
-/// \param f FOV of the image
 /// \param amb Ambient colour of the image
 /// \param back Background colour of the image
+/// \param rays Number of rays to send per pixel
+/// \param anti Whether or not to use antialiasing
+/// \param global Whether or not to use global illumination
+/// \param max Maximum number of global illumination bounces
+/// \param terminate Probability for global illumination bounce termination
 Image::Image(
     string n,
     int w, int h,
@@ -100,17 +206,7 @@ Image::~Image() {
     delete background;
     background = NULL;
 
-    cout << "delete IMAGE (" << name << ")" << endl;
-}
-
-/// Image stream insertion operator
-/// \param strm Incoming stream
-/// \param i Image to insert
-/// \return Image information added to the stream
-ostream& operator<<(ostream &strm, const Image &i) {
-    return strm << "IMAGE (" << i.name << ")" << endl
-                << "\tHeight: " << i.height << endl
-                << "\tWidth: " << i.width << endl;
+    //cout << "delete IMAGE (" << name << ")" << endl;
 }
 
 /// Name getter
@@ -139,15 +235,49 @@ Vector3f *Image::get_ambient() { return ambient; }
 /// \return Background colour of the Image
 Vector3f *Image::get_background() { return background; }
 
+/// Rays per pixel getter
+/// \return Number of rays to send per pixel
 vector<int> Image::get_raysperpixel() { return raysperpixel; }
+/// Antialiasing getter
+/// \return Whether or not to use antialiasing
 bool Image::get_antialiasing() { return antialiasing; }
+/// Global illumination getter
+/// \return Whether or not to use global illumination
 bool Image::get_globalillum() { return globalillum; }
 
+/// Method to raycast into the scene in the hopes of hitting a particular shape
+/// \param cam The camera from which to cast the rays
+/// \param img The image to generate to
+/// \param sha The shape that we're trying to hit
+/// \param all_lights List of lights to include in intensity calculations
+/// \param verbose Whether to print raycasts to the console as they happen
+/// \param only_display_hits Whether to display only the raycasts that hit in the console
+/// \param all_shapes List of shapes to include in the calculations
+void Image::raycast(
+    Camera *cam,
+    Image *img,
+    Shape *sha,
+    vector<Light*> all_lights,
+    bool verbose,
+    bool only_display_hits,
+    vector<Shape*> all_shapes) {
+    if (globalillum) global_raycast(cam, img, sha, all_lights, verbose, only_display_hits, all_shapes);
+    else local_raycast(cam, img, sha, all_lights, verbose, only_display_hits, all_shapes);
+}
+
+/// Single ray calculations that use the intensity from where they first hit
+/// \param cam The camera from which to cast the rays
+/// \param img The image to generate to
+/// \param sha The shape that we're trying to hit
+/// \param all_lights List of lights to include in intensity calculations
+/// \param verbose Whether to print raycasts to the console as they happen
+/// \param only_display_hits Whether to display only the raycasts that hit in the console
+/// \param all_shapes List of shapes to include in the calculations
 void Image::local_raycast(
         Camera *cam,
         Image *img,
         Shape *sha,
-        vector<Light*> li,
+        vector<Light*> all_lights,
         bool verbose,
         bool only_display_hits,
         vector<Shape*> all_shapes) {
@@ -156,9 +286,9 @@ void Image::local_raycast(
     float pixel_size = img->get_pixel_size(cam);
 
     Vector3f base =
-        *cam->get_origin() + *cam->get_look_at() +
-        (*cam->get_up() * alpha) -
-        (*cam->get_side() * alpha * aspect);
+        *cam->get_origin() + *cam->get_look_at()
+        + (*cam->get_up() * alpha)
+        - (*cam->get_side() * alpha * aspect);
 
     int count = 0;
 
@@ -178,16 +308,16 @@ void Image::local_raycast(
             // Printing the raycast information to the console
             if (verbose && ((only_display_hits && ray->get_does_hit()) || !only_display_hits)) {
                 cout << "[" << ray->get_does_hit() << "] Raycast " << count << ": " <<
-                     ray->get_raycast()->x() << " " <<
-                     ray->get_raycast()->y() << " " <<
-                     ray->get_raycast()->z() << " " << endl;
+                     ray->get_hit()->x() << " " <<
+                     ray->get_hit()->y() << " " <<
+                     ray->get_hit()->z() << " " << endl;
             }
 
             // Saving the pixel information to the PPM buffer if it does hit
             if (ray->get_does_hit()) {
                 number_of_hits++;
 
-                Vector3f intensity = ray->get_average_intensity(ray->get_hit(), sha, all_shapes, li, false);
+                Vector3f intensity = ray->get_average_intensity(ray->get_hit(), sha, all_shapes, all_lights, false);
 
                 buffer->at(index + 0) = intensity.x();
                 buffer->at(index + 1) = intensity.y();
@@ -204,24 +334,10 @@ void Image::local_raycast(
     save_ppm(name, *buffer, width, height);
 }
 
-Vector2f Image::get_stratified_offset(float max_x, float max_y) {
-    random_device dev;
-    mt19937 rng(dev());
-    uniform_real_distribution<float> dist_x(0, 1 / max_x);
-    uniform_real_distribution<float> dist_y(0, 1 / max_y);
-
-    return Vector2f(dist_x(rng), dist_y(rng));
-}
-
-Vector3f Image::get_initial_outgoing_global_ray(Camera* cam, Vector2f offset_max, Vector3f origin, Vector2f index, float pixel_size) {
-    Vector2f offset = get_stratified_offset(offset_max.x(), offset_max.y());
-
-    return origin +
-        (*cam->get_up() * ((-index.y() + offset.y()) * pixel_size + (pixel_size / 2))) +
-        (*cam->get_side() * ((index.x() + offset.x()) * pixel_size + (pixel_size / 2)));
-}
-
-bool Image::check_probterminate() {
+/// Quick method to check if the global illumination bounces should terminate early
+/// \param probterminate Probability for global illumination bounce termination
+/// \return Whether or not to terminate the bounces
+bool check_probterminate(float probterminate) {
     random_device dev;
     mt19937 rng(dev());
     uniform_real_distribution<float> dist(0, 1);
@@ -229,10 +345,14 @@ bool Image::check_probterminate() {
     return dist(rng) <= probterminate;
 }
 
-Vector3f Image::get_new_bounce_direction(Vector3f o, Vector3f n) {
+/// Calculates a new direction for a global illumination bounce to go in
+/// \param o Origin of the bounce
+/// \param n Normal of the hemisphere at the bounce
+/// \return The new bounce direction
+Vector3f get_new_bounce_direction(Vector3f o, Vector3f n) {
     random_device dev;
     mt19937 rng(dev());
-    uniform_real_distribution<float> dist(0, 1);
+    uniform_real_distribution<float> dist(-1, 1);
 
     float x = dist(rng);
     float y = dist(rng);
@@ -242,24 +362,35 @@ Vector3f Image::get_new_bounce_direction(Vector3f o, Vector3f n) {
         y = dist(rng);
     }
 
-    float z = sqrt(1 - pow(x, 2) - pow(y, 2));
+    float z = sqrt(1 - pow(x, 2) - pow(y, 2));;
 
-    Vector3f axis1 = n.cross(Vector3f(1, 0, 0)).normalized();
-    Vector3f axis2 = n.cross(axis1).normalized();
+    Matrix3f rotation = Quaternionf().setFromTwoVectors(Vector3f(0, 1, 0), n).toRotationMatrix();
 
-    return (Vector3f(axis1.x() * x, n.y() * y, axis2.z() * z) - o).normalized(); // TODO: will this work?
+    return rotation * Vector3f(x, y, z); // TODO: is this correct?
 }
 
-float Image::get_cos_angle(Vector3f in, Vector3f out) {
+/// Determines the cosine of the angle between an incoming and outgoing vector
+/// \param in Incoming vector
+/// \param out Outgoing vector
+/// \return The cosine of the angle between the given vectors
+float get_cos_angle(Vector3f in, Vector3f out) {
     float angle = acos(in.dot(out) / (in.norm() * out.norm()));
     return cos(angle);
 }
 
+/// Multi-ray calculations that average intensities between bounces and samples
+/// \param cam The camera from which to cast the rays
+/// \param img The image to generate to
+/// \param sha The shape that we're trying to hit
+/// \param all_lights List of lights to include in intensity calculations
+/// \param verbose Whether to print raycasts to the console as they happen
+/// \param only_display_hits Whether to display only the raycasts that hit in the console
+/// \param all_shapes List of shapes to include in the calculations
 void Image::global_raycast(
         Camera *cam,
         Image *img,
         Shape *sha,
-        vector<Light*> li,
+        vector<Light*> all_lights,
         bool verbose,
         bool only_display_hits,
         vector<Shape*> all_shapes) {
@@ -298,52 +429,81 @@ void Image::global_raycast(
 
     int num_samples = num_cells_x * num_cells_y * num_rays;
 
+    random_device dev;
+    mt19937 rng(dev());
+
     // Iterating vertically first, then horizontally
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
             int index = (3 * j * width) + (3 * i);
 
             vector<Vector3f> sample_colours;
-            bool did_all_miss = true;
+            bool did_all_firsts_miss = true;
 
             for (int current_cell_x = 0; current_cell_x < num_cells_x; current_cell_x++) {
                 for (int current_cell_y = 0; current_cell_y < num_cells_y; current_cell_y++) {
                     for (int current_ray = 0; current_ray < num_rays; current_ray++) {
                         Vector3f average_colour(0, 0, 0);
 
-                        // Creating and shooting the raycast
+                        uniform_real_distribution<float> dist_x(0, 1 / (1 / num_cells_x));
+                        uniform_real_distribution<float> dist_y(0, 1 / (1 / num_cells_y));
+
+                        Vector2f offset = Vector2f(dist_x(rng), dist_y(rng));
+
+                        Vector3f initial_outgoing_ray = base +
+                           (*cam->get_up() * ((-j + offset.y()) * pixel_size + (pixel_size / 2))) +
+                           (*cam->get_side() * ((i + offset.x()) * pixel_size + (pixel_size / 2)));
+
                         Ray *ray = new Ray(
                             *cam->get_origin(),
-                            get_initial_outgoing_global_ray(
-                                cam,
-                                Vector2f(1 / num_cells_x, 1 / num_cells_y),
-                                base,
-                                Vector2f(i, j),
-                                pixel_size),
+                            initial_outgoing_ray,
                             sha,
                             false
                         );
 
-                        // Saving the pixel information to the PPM buffer if it does hit
                         if (ray->get_does_hit()) {
                             number_of_hits++;
 
-                            did_all_miss = false;
+                            did_all_firsts_miss = false;
 
                             last_hit = new Vector3f(*ray->get_hit());
                             last_normal = new Vector3f(*ray->get_hit_normal());
                             last_dir = new Vector3f((*ray->get_hit() - *cam->get_origin()).normalized());
 
-                            average_colour += ray->get_average_intensity(last_hit, sha, all_shapes, li, true);
+                            average_colour += ray->get_average_intensity(last_hit, sha, all_shapes, all_lights, true);
 
                             int bounces = 0;
+                            bool keep_bouncing = bounces < maxbounces && check_probterminate(probterminate);
+                            bool last_bounce = false;
 
-                            while (bounces < maxbounces && check_probterminate()) {
+                            while (keep_bouncing || (!keep_bouncing && !last_bounce)) {
                                 bounces++;
 
+                                if (keep_bouncing)
+                                    keep_bouncing = bounces < maxbounces && check_probterminate(probterminate);
+                                else last_bounce = true;
+
                                 Ray *bounce_ray;
-                                float min;
-                                Vector3f new_dir = get_new_bounce_direction(*last_hit, *last_normal);
+                                float min = 1000;
+                                Vector3f new_dir;
+
+                                if (last_bounce) {
+                                    uniform_int_distribution<int> bounce_dist(0, all_lights.size() - 1);
+
+                                    Light *l = all_lights[bounce_dist(rng)];
+                                    Vector3f light_pos;
+
+                                    if (l->get_type() == "Point") {
+                                        light_pos = *dynamic_cast<Point*>(l)->get_origin();
+                                    }
+                                    else if (l->get_type() == "Area") {
+                                        Area *area = dynamic_cast<Area*>(l);
+                                        light_pos = (*area->P3() - *area->P1()) / 2;
+                                    }
+
+                                    new_dir = (light_pos - *last_hit).normalized();
+                                }
+                                else new_dir = get_new_bounce_direction(*last_hit, *last_normal);
 
                                 for (int k = 0; k < all_shapes.size(); k++) {
                                     Ray *temp_ray;
@@ -355,18 +515,29 @@ void Image::global_raycast(
                                         true
                                     );
 
+                                    if (k == 0) bounce_ray = temp_ray;
+
                                     if (temp_ray->get_does_hit()) {
                                         float distance = (*temp_ray->get_hit() - *last_hit).norm();
 
-                                        if (k == 0 || distance < min)
-                                            min = distance;
+                                        if (distance < min) {
+                                            if (k > 0) {
+                                                delete bounce_ray;
+                                                bounce_ray = NULL;
+                                            }
 
-                                        bounce_ray = temp_ray;
+                                            min = distance;
+                                            bounce_ray = temp_ray;
+                                        }
+                                        else {
+                                            if (k > 0) {
+                                                delete temp_ray;
+                                                temp_ray = NULL;
+                                            }
+                                        }
                                     }
                                     else {
-                                        if (k == 0) bounce_ray = temp_ray;
-
-                                        if (k < all_shapes.size() - 1) {
+                                        if (k > 0) {
                                             delete temp_ray;
                                             temp_ray = NULL;
                                         }
@@ -388,6 +559,11 @@ void Image::global_raycast(
                                 last_normal = NULL;
 
                                 if (bounce_ray->get_does_hit()) {
+                                    if (last_bounce) {
+                                        average_colour = Vector3f(0, 0, 0);
+                                        break;
+                                    }
+
                                     last_hit = new Vector3f(*bounce_ray->get_hit());
                                     last_normal = new Vector3f(*bounce_ray->get_hit_normal());
 
@@ -402,15 +578,15 @@ void Image::global_raycast(
                                         * bounce_ray->get_hit_shape()->get_diffuse_coefficient();
                                 }
                                 else {
-                                    average_colour = Vector3f(0, 0, 0);
-                                    break;
+                                    if (!last_bounce) {
+                                        average_colour = Vector3f(0, 0, 0);
+                                        break;
+                                    }
                                 }
 
                                 delete bounce_ray;
                                 bounce_ray = NULL;
                             }
-
-                            // TODO: last ray goes to the light (random one if multiple)
 
                             delete last_hit;
                             last_hit = NULL;
@@ -433,7 +609,7 @@ void Image::global_raycast(
                 }
             }
 
-            if (!did_all_miss) {
+            if (!did_all_firsts_miss) {
                 Vector3f pixel_average(0, 0, 0);
 
                 for (Vector3f colour : sample_colours) {
@@ -452,124 +628,6 @@ void Image::global_raycast(
     save_ppm(name, *buffer, width, height);
 }
 
-/// Method to raycast into the scene in the hopes of hitting a particular shape
-/// \param cam The camera from which to cast the rays
-/// \param sha The shape that we're trying to hit
-/// \param li List of lights to include in intensity calculations
-/// \param verbose Whether to print raycasts to the console as they happen
-/// \param only_display_hits Whether to display only the raycasts that hit in the console
-void Image::raycast(
-        Camera *cam,
-        Image *img,
-        Shape *sha,
-        vector<Light*> li,
-        bool verbose,
-        bool only_display_hits,
-        vector<Shape*> all_shapes) {
-    if (globalillum) global_raycast(cam, img, sha, li, verbose, only_display_hits, all_shapes);
-    else local_raycast(cam, img, sha, li, verbose, only_display_hits, all_shapes);
-}
-
-
-
-/* ### Light ### */
-
-/// Light class constructor
-/// \param t Type of the light
-/// \param diff_int Diffuse intensity of the light
-/// \param spec_int Specular intensity of the light
-Light::Light(string t, Vector3f *diff_int, Vector3f *spec_int) :
-    type(t), diffuse_intensity(diff_int), specular_intensity(spec_int) { }
-
-Light::~Light() {
-    delete diffuse_intensity;
-    diffuse_intensity = NULL;
-
-    delete specular_intensity;
-    specular_intensity = NULL;
-
-    cout << "delete LIGHT" << endl;
-}
-
-/// Type getter
-/// \return Type of the light
-string Light::get_type() { return type; }
-
-/// Diffuse intensity getter
-/// \return Diffuse intensity of the light
-Vector3f *Light::get_diffuse_intensity() { return diffuse_intensity; }
-/// Specular intensity getter
-/// \return Specular intensity of the light
-Vector3f *Light::get_specular_intensity() { return specular_intensity; }
-
-
-
-/* ### Point ### */
-
-/// Point light class constructor
-/// \param o Origin of the light
-/// \param diff_int Diffuse intensity of the light
-/// \param spec_int Specular intensity of the light
-Point::Point(Vector3f *o, Vector3f *diff_int, Vector3f *spec_int) :
-    Light("Point", diff_int, spec_int), origin(o) { }
-
-/// Point light destructor
-Point::~Point() {
-    delete origin;
-    origin = NULL;
-
-    cout << "delete POINT LIGHT" << endl;
-}
-
-/// Origin getter
-/// \return Origin of the light
-Vector3f *Point::get_origin() { return origin; }
-
-
-
-/* ### Area ### */
-
-/// Area light class constructor
-/// \param a First point
-/// \param b Second point
-/// \param c Third point
-/// \param d Fourth point
-/// \param diff_int Diffuse intensity of the light
-/// \param spec_int Specular intensity of the light
-Area::Area(
-        Vector3f* a, Vector3f* b, Vector3f* c, Vector3f* d,
-        Vector3f *diff_int, Vector3f *spec_int, int stratified_n, bool center) :
-    Light("Area", diff_int, spec_int),
-    p1(a), p2(b), p3(c), p4(d), n(stratified_n), usecenter(center) { }
-
-/// Area light constructor
-Area::~Area() {
-    delete p1;
-    p1 = NULL;
-
-    delete p2;
-    p2 = NULL;
-
-    delete p3;
-    p3 = NULL;
-
-    delete p4;
-    p4 = NULL;
-}
-
-/// First point getter
-/// \return First point
-Vector3f *Area::P1() { return p1; }
-/// Second point getter
-/// \return Second point
-Vector3f *Area::P2() { return p2; }
-/// Third point getter
-/// \return Third point
-Vector3f *Area::P3() { return p3; }
-/// Fourth point getter
-/// \return Fourth point
-Vector3f *Area::P4() { return p4; }
-
 
 
 /* ### Output ### */
@@ -581,18 +639,18 @@ Output::Output(Camera *cam, Image *img) : camera(cam), image(img) { }
 
 /// Output destructor
 Output::~Output() {
-    delete image;
-    image = NULL;
-
     delete camera;
     camera = NULL;
 
-    cout << "delete OUTPUT" << endl;
+    delete image;
+    image = NULL;
+
+    //cout << "delete OUTPUT" << endl;
 }
 
-/// Scene image getter
-/// \return Scene image
-Image *Output::get_image() { return image; }
 /// Scene camera getter
 /// \return Scene camera
 Camera *Output::get_camera() { return camera; }
+/// Scene image getter
+/// \return Scene image
+Image *Output::get_image() { return image; }

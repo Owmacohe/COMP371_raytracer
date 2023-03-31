@@ -1,6 +1,6 @@
-#include "RayTracer.h"
 #include "Shapes.h"
 #include "LightsAndOutput.h"
+#include "RayTracer.h"
 
 /* ### RayTracer ### */
 
@@ -56,7 +56,7 @@ RayTracer::~RayTracer() {
         o = NULL;
     }
 
-    cout << "delete RAYTRACER" << endl;
+    //cout << "delete RAYTRACER" << endl;
 }
 
 /// Main method to actually run the RayTracer
@@ -241,63 +241,33 @@ vector<Output*> RayTracer::parse_outputs() {
 
 /* ### Ray ### */
 
-/// Gets the raycast hit point for a triangle
-/// \param o Origin of the raycast
-/// \param n Normal of the triangle
-/// \param out Camera-to-image-plane outgoing vector
-/// \return The 3D hit point of the triangle raycast
-Vector3f triangle_intersect(Vector3f o, Vector3f n, Vector3f out) {
-    float t = -(o.dot(n) - 4) / (out.dot(n));
-    return o + (out * t);
-}
-
 /// Ray class constructor
+/// \param origin Where the ray strats from
+/// \param dir The direction of the ray
 /// \param sha Shape to raycast at
-Ray::Ray(Vector3f origin, Vector3f ray, Shape *sha, bool global) {
-    Vector3f dir = ray.normalized();
+/// \param global Whether or not to use global illumination
+Ray::Ray(Vector3f origin, Vector3f dir, Shape *sha, bool global) {
+    dir = dir.normalized();
 
     // Checking to see which shape we are raycasting at, so we can hit it properly
-    if (sha->getType() == "Rectangle") {
-        Rectangle *rect = dynamic_cast<Rectangle*>(sha);
-
-        if (global) {
-            does_hit = hit_rectangle(origin, dir, rect);
-        }
-        else {
-            raycast = new Vector3f(triangle_intersect(origin, *rect->getT1()->get_normal(), ray));
-
-            does_hit = hit_triangle(*raycast, rect->getT1());
-            if (!does_hit) does_hit = hit_triangle(*raycast, rect->getT2());
-        }
-    }
-    else if (sha->getType() == "Sphere") {
-        raycast = new Vector3f(ray);
-
-        does_hit = hit_sphere(
-            origin,
-            dir,
-            dynamic_cast<Sphere*>(sha)
-        );
-    }
-
-    if (does_hit) hit_shape = sha;
+    if (sha->getType() == "Rectangle")
+        does_hit = hit_rectangle(origin, dir, dynamic_cast<Rectangle*>(sha));
+    else if (sha->getType() == "Sphere")
+        does_hit = hit_sphere(origin, dir, dynamic_cast<Sphere*>(sha));
 }
 
 /// Ray destructor
 Ray::~Ray() {
-    if (hit != raycast) {
+    if (does_hit) {
         delete hit;
         hit = NULL;
+
+        delete hit_normal;
+        hit_normal = NULL;
     }
-
-    delete hit_normal;
-    hit_normal = NULL;
-
-    delete raycast;
-    raycast = NULL;
 }
 
-/// Free method to determine whether a ray is on the right of a line
+/// Method to determine whether a ray is on the right of a line
 /// \param ray The ray to check
 /// \param p1 The first point of the line
 /// \param p2 The second point of the line
@@ -307,40 +277,10 @@ bool is_on_right(Vector3f ray, Vector3f p1, Vector3f p2, Vector3f n) {
     return ((p1 - p2).cross(ray - p2)).dot(n) > 0;
 }
 
-Vector3f project_to_plane(
-        Vector3f plane_point, Vector3f plane_normal,
-        Vector3f point_origin, Vector3f point_direction) {
-    float A = (plane_point - point_origin).dot(plane_normal);
-    float B = point_direction.dot(plane_normal);
-
-    Vector3f projection = point_origin + point_direction * (A / B);
-
-    if (B == 0) return projection;
-    else throw "No projection!";
-}
-
-bool Ray::hit_rectangle(Vector3f check_origin, Vector3f check_direction, Rectangle *rect) {
-    try {
-        Vector3f projection = project_to_plane(
-            *rect->A(),
-            *rect->get_normal(),
-            check_origin,
-            check_direction
-        );
-
-        raycast = new Vector3f(projection);
-
-        bool valid = hit_triangle(projection, rect->getT1());
-        if (!valid) valid = hit_triangle(projection, rect->getT2());
-
-        return valid;
-    }
-    catch (const char* msg) { return false; }
-}
-
-/// Method to see if the raycast hits a triangle
-/// \param tri Triangle to hit
-/// \return Whether the ray does hit
+/// Method to see if the ray hits a triangle
+/// \param check The point to check against the triangle
+/// \param tri Triangle to check against
+/// \return Whether the ray is within the triangle
 bool Ray::hit_triangle(Vector3f check, Triangle *tri) {
     bool ba = is_on_right(check, *tri->B(), *tri->A(), *tri->get_normal());
     bool cb = is_on_right(check, *tri->C(), *tri->B(), *tri->get_normal());
@@ -350,17 +290,59 @@ bool Ray::hit_triangle(Vector3f check, Triangle *tri) {
     bool temp = (ba == cb) && (cb == ac);
 
     if (temp) {
-        hit = raycast;
+        hit = new Vector3f(check);
         hit_normal = new Vector3f(*tri->get_normal());
     }
 
     return temp;
 }
 
-/// Method to see if the raycast hits a sphere
-/// \param o Origin of the raycast
-/// \param sph Sphere to hit
-/// \return Whether the ray does hit
+/// Quick method to calculate the position where a ray intersects with a plane
+/// \param plane_point Any point on the plane
+/// \param plane_normal The normal of the plane
+/// \param ray_origin The origin of the ray
+/// \param ray_direction The direction the ray is going
+/// \return Where the ray intersects the plane
+Vector3f project_to_plane(
+    Vector3f plane_point, Vector3f plane_normal,
+    Vector3f ray_origin, Vector3f ray_direction) {
+    float A = (plane_normal).dot(plane_point - ray_origin);
+    float B = plane_normal.dot(ray_direction);
+    float t = A / B;
+
+    Vector3f projection = ray_origin + ray_direction * t;
+
+    if (t > 0) return projection;
+    else throw "No projection!";
+}
+
+/// Method to see if the ray hits a rectangle
+/// \param check_origin Origin of the ray
+/// \param check_direction Direction the ray is going in
+/// \param rect Rectangle to check against
+/// \return Whether the ray hits the rectangle
+bool Ray::hit_rectangle(Vector3f check_origin, Vector3f check_direction, Rectangle *rect) {
+    try {
+        Vector3f projection = project_to_plane(
+            *rect->A(),
+            *rect->get_normal(),
+            check_origin,
+            check_direction
+        );
+
+        bool valid = hit_triangle(projection, rect->getT1());
+        if (!valid) valid = hit_triangle(projection, rect->getT2());
+
+        return valid;
+    }
+    catch (const char* msg) { return false; }
+}
+
+/// Method to see if the ray hits a sphere
+/// \param o Origin of the ray
+/// \param dir Direction the ray is going in
+/// \param sph Sphere to check against
+/// \return Whether the ray hits the sphere
 bool Ray::hit_sphere(Vector3f o, Vector3f dir, Sphere *sph) {
     Vector3f toSphere = o - *sph->get_origin();
 
@@ -376,9 +358,11 @@ bool Ray::hit_sphere(Vector3f o, Vector3f dir, Sphere *sph) {
     float root1 = (-b + sqrt(determinant)) / (2 * a);
     float root2 = (-b - sqrt(determinant)) / (2 * a);
 
-    // Finding which root is closer (the hit which will be displayed)
-    hit = new Vector3f(o + dir * (root1 < root2 ? root1 : root2));
-    hit_normal = new Vector3f((*hit - *sph->get_origin()).normalized());
+    if (determinant >= 0) {
+        // Finding which root is closer (the hit which will be displayed)
+        hit = new Vector3f(o + dir * (root1 < root2 ? root1 : root2));
+        hit_normal = new Vector3f((*hit - *sph->get_origin()).normalized());
+    }
 
     return determinant >= 0;
 }
@@ -405,11 +389,12 @@ float clamp(float f, float min, float max) {
     return f;
 }
 
-/// Method to calculate the intensity for a particular raycast
+/// Method to calculate the intensity for a particular raycast for a single light
 /// \param hit The hit point for the raycast
 /// \param sha The shape being hit
 /// \param poi The light source point
-/// \param shininess The amount of shine
+/// \param all_shapes A list of all the shapes in the scene
+/// \param global Whether or not the scene uses global illumination
 /// \return An RGB intensity for the given raycast
 Vector3f Ray::get_intensity(
         Vector3f *hit,
@@ -478,6 +463,14 @@ Vector3f Ray::get_intensity(
     return intensity;
 }
 
+/// Gets the average intensity from all lights at a particular point
+/// \param hit The hit point for the raycast
+/// \param sha The shape being hit
+/// \param poi The light source point
+/// \param all_shapes A list of all the shapes in the scene
+/// \param all_lights A list of all the lights in the scene
+/// \param global Whether or not the scene uses global illumination
+/// \return An average light intensity at a point
 Vector3f Ray::get_average_intensity(
         Vector3f *hit,
         Shape *sha,
@@ -501,7 +494,7 @@ Vector3f Ray::get_average_intensity(
             intensity += get_intensity(
                 hit,
                 sha,
-                (*area->P3() - *area->P1()) / 2, // TODO: make sure to check for usecenter
+                (*area->P3() - *area->P1()) / 2, // TODO: make sure to check for usecenter (if local)
                 all_shapes,
                 global);
         }
@@ -515,11 +508,9 @@ Vector3f Ray::get_average_intensity(
 /// Hit point getter
 /// \return The hit point of the raycast
 Vector3f *Ray::get_hit() { return hit; }
+/// Hit point normal getter
+/// \return The normal at the hit point
 Vector3f *Ray::get_hit_normal() { return hit_normal; }
-Shape *Ray::get_hit_shape() { return hit_shape; }
-/// Raycast vector getter
-/// \return The vector of the raycast
-Vector3f *Ray::get_raycast() { return raycast; }
 /// Does hit getter
 /// \return Whether the raycast hits the shape
 bool Ray::get_does_hit() { return does_hit; }

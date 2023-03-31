@@ -30,9 +30,8 @@ public:
         float, float, float,
         float,
         Vector3f*);
-    ~Triangle();
 
-    friend ostream& operator<<(ostream &strm, const Triangle &t);
+    ~Triangle();
 
     Vector3f *A(), *B(), *C(), *get_normal();
 private:
@@ -45,9 +44,8 @@ public:
         Vector3f*, Vector3f*, Vector3f*,
         float, float, float,
         float);
-    ~Rectangle();
 
-    friend ostream& operator<<(ostream &strm, const Rectangle &p);
+    ~Rectangle();
 
     Triangle *getT1(), *getT2();
     Vector3f *A(), *B(), *C(), *D(), *get_normal();
@@ -70,8 +68,6 @@ class Sphere : public Shape3D {
 public:
     Sphere(Vector3f*, float, Vector3f*, Vector3f*, Vector3f*, float, float, float, float);
     ~Sphere();
-
-    friend ostream& operator<<(ostream &strm, const Sphere &s);
 
     float get_radius() const;
 private:

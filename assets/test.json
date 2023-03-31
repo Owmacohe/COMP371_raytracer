@@ -1,23 +1,22 @@
 {
-    "geometry":[
-        {
-            "type":"rectangle",
-            "p1":[-20, -1, 0],
-            "p2":[20, -1, 0],
-            "p3":[20, -1, -20],
-            "p4":[-20, -1, -20],
+    "geometry":[{
+        "type":"rectangle",
+        "p1":[-20, -1, 0],
+        "p2":[20, -1, 0],
+        "p3":[20, -1, -20],
+        "p4":[-20, -1, -20],
 
 
-            "ac":[0,1,0],
-            "dc":[1,0,0],
-            "sc":[1,1,1],
+        "ac":[0,1,0],
+        "dc":[1,0,0],
+        "sc":[1,1,1],
 
-            "ka":1,
-            "kd":1,
-            "ks":1,
+        "ka":1,
+        "kd":1,
+        "ks":1,
 
-            "pc":10
-        },
+        "pc":10
+    },
         {
             "type":"sphere",
             "centre":[0, 0, -4],
@@ -33,6 +32,7 @@
             "pc":10
 
         }
+
     ],
     "light":[
         {
@@ -48,21 +48,20 @@
             "is":[1, 1, 1]
         }
     ],
-    "output":[
-        {
-            "filename":"test_moved_down_global 20.ppm",
-            "size":[500,500],
-            "lookat":[0,0,-1],
-            "up":[0,1,0],
-            "fov":60,
-            "centre":[0,0,0],
-            "ai":[1,1,1],
-            "bkc":[1,1,1],
+    "output":[{
+        "filename":"test.ppm",
+        "size":[500,500],
+        "lookat":[0,0,-1],
+        "up":[0,1,0],
+        "fov":60,
+        "centre":[0,0.1,0],
+        "ai":[1,1,1],
+        "bkc":[1,1,1],
 
-            "globalillum": true,
-            "raysperpixel": [1, 20],
-            "maxbounces": 3,
-            "probterminate": 0.333
-        }
+        "globalillum": false,
+        "raysperpixel": [1, 1],
+        "maxbounces": 3,
+        "probterminate": 0.333
+    }
     ]
 }
