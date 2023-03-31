@@ -15,20 +15,21 @@ RayTracer::~RayTracer() {
     delete j;
     j = NULL;
 
+    // Deleting all the shapes
     for (Shape *s : shapes) {
-        if (s->getType() == "Triangle") {
+        if (s->get_type() == "Triangle") {
             Triangle *temp = dynamic_cast<Triangle*>(s);
 
             delete temp;
             temp = NULL;
         }
-        else if (s->getType() == "Rectangle") {
+        else if (s->get_type() == "Rectangle") {
             Rectangle *temp = dynamic_cast<Rectangle*>(s);
 
             delete temp;
             temp = NULL;
         }
-        else if (s->getType() == "Sphere") {
+        else if (s->get_type() == "Sphere") {
             Sphere *temp = dynamic_cast<Sphere*>(s);
 
             delete temp;
@@ -36,6 +37,7 @@ RayTracer::~RayTracer() {
         }
     }
 
+    // Deleting all the lights
     for (Light *l : lights) {
         if (l->get_type() == "Point") {
             Point *temp = dynamic_cast<Point*>(l);
@@ -51,6 +53,7 @@ RayTracer::~RayTracer() {
         }
     }
 
+    // Deleting all the outputs
     for (Output *o : outputs) {
         delete o;
         o = NULL;
@@ -70,19 +73,18 @@ void RayTracer::run() {
     cout << endl;
 
     for (Output *o : outputs) {
+        cout << "Output: " << o->get_image()->get_name() << endl;
+
         for (Shape *s : shapes) {
             o->get_image()->raycast(
                 o->get_camera(),
                 o->get_image(),
                 s,
                 lights,
-                false, true,
                 shapes);
 
-            cout << "Rendered: " << s->getType() << endl;
+            cout << "Rendered: " << s->get_type() << endl;
         }
-
-        cout << endl << "[" << o->get_image()->get_name() << "] number of hits: " << o->get_image()->get_number_of_hits() << endl << endl;
     }
 }
 
@@ -247,12 +249,12 @@ vector<Output*> RayTracer::parse_outputs() {
 /// \param sha Shape to raycast at
 /// \param global Whether or not to use global illumination
 Ray::Ray(Vector3f origin, Vector3f dir, Shape *sha, bool global) {
-    dir = dir.normalized();
+    dir = dir.normalized(); // Making sure the direction is normalized
 
     // Checking to see which shape we are raycasting at, so we can hit it properly
-    if (sha->getType() == "Rectangle")
+    if (sha->get_type() == "Rectangle")
         does_hit = hit_rectangle(origin, dir, dynamic_cast<Rectangle*>(sha));
-    else if (sha->getType() == "Sphere")
+    else if (sha->get_type() == "Sphere")
         does_hit = hit_sphere(origin, dir, dynamic_cast<Sphere*>(sha));
 }
 
@@ -292,6 +294,7 @@ bool Ray::hit_triangle(Vector3f check, Triangle *tri) {
     if (temp) {
         hit = new Vector3f(check);
         hit_normal = new Vector3f(*tri->get_normal());
+        hit_shape = tri;
     }
 
     return temp;
@@ -304,15 +307,15 @@ bool Ray::hit_triangle(Vector3f check, Triangle *tri) {
 /// \param ray_direction The direction the ray is going
 /// \return Where the ray intersects the plane
 Vector3f project_to_plane(
-    Vector3f plane_point, Vector3f plane_normal,
-    Vector3f ray_origin, Vector3f ray_direction) {
+        Vector3f plane_point, Vector3f plane_normal,
+        Vector3f ray_origin, Vector3f ray_direction) {
     float A = (plane_normal).dot(plane_point - ray_origin);
     float B = plane_normal.dot(ray_direction);
     float t = A / B;
 
     Vector3f projection = ray_origin + ray_direction * t;
 
-    if (t > 0) return projection;
+    if (t > 0) return projection; // Making sure that the project is actually in front of the ray
     else throw "No projection!";
 }
 
@@ -323,6 +326,7 @@ Vector3f project_to_plane(
 /// \return Whether the ray hits the rectangle
 bool Ray::hit_rectangle(Vector3f check_origin, Vector3f check_direction, Rectangle *rect) {
     try {
+        // Trying to project to the Rectangle's plane
         Vector3f projection = project_to_plane(
             *rect->A(),
             *rect->get_normal(),
@@ -330,8 +334,11 @@ bool Ray::hit_rectangle(Vector3f check_origin, Vector3f check_direction, Rectang
             check_direction
         );
 
+        // checking the first Triangle, then the second (if it doesn't hit)
         bool valid = hit_triangle(projection, rect->getT1());
         if (!valid) valid = hit_triangle(projection, rect->getT2());
+
+        if (valid) hit_shape = rect;
 
         return valid;
     }
@@ -361,7 +368,9 @@ bool Ray::hit_sphere(Vector3f o, Vector3f dir, Sphere *sph) {
     if (determinant >= 0) {
         // Finding which root is closer (the hit which will be displayed)
         hit = new Vector3f(o + dir * (root1 < root2 ? root1 : root2));
+
         hit_normal = new Vector3f((*hit - *sph->get_origin()).normalized());
+        hit_shape = sph;
     }
 
     return determinant >= 0;
@@ -401,34 +410,55 @@ Vector3f Ray::get_intensity(
         Shape *sha,
         Vector3f poi,
         vector<Shape*> all_shapes,
+        vector<Light*> all_lights,
         bool global) {
-    /*
-    bool hits = false;
+    bool local_shadow = false;
 
-    for (Shape* i : all_shapes) {
-        if (i != sha) {
-            // TODO: do proper local illumination shadows
+    if (!global) {
+        for (Shape* s : all_shapes) {
+            for (Light* l : all_lights) {
+                if (s != sha) {
+                    Ray *ray;
 
-            if (i->getType() == "Rectangle") {
+                    if (l->get_type() == "Point") {
+                        ray = new Ray(
+                            *hit,
+                            *dynamic_cast<Point*>(l)->get_origin() - *hit,
+                            s,
+                            false
+                        );
+                    }
+                    else if (l->get_type() == "Area") {
+                        Area *area = dynamic_cast<Area*>(l);
 
+                        ray = new Ray(
+                            *hit,
+                            ((*area->P3() - *area->P1()) / 2) - *hit,
+                            s,
+                            false
+                        );
+                    }
+
+                    local_shadow = ray->get_does_hit(); // TODO: where should I utilize this?
+
+                    delete ray;
+                    ray = NULL;
+
+                    if (local_shadow) break;
+                }
             }
-            else if (i->getType() == "Sphere") {
 
-            }
-
-            //if (hits) cout << sha->getType() << endl;
-            if (hits) return Vector3f(0, 0, 0);
+            if (local_shadow) break;
         }
     }
-    */
 
     Vector3f N;
 
     // Get the respective normal
-    if (sha->getType() == "Rectangle") {
+    if (sha->get_type() == "Rectangle") {
         N = -*dynamic_cast<Rectangle*>(sha)->get_normal();
     }
-    else if (sha->getType() == "Sphere") {
+    else if (sha->get_type() == "Sphere") {
         N = (*hit - *dynamic_cast<Sphere*>(sha)->get_origin()).normalized();
     }
 
@@ -443,7 +473,7 @@ Vector3f Ray::get_intensity(
         Vector3f H = (L + V) / (L + V).norm();
 
         // Getting the specular
-        float specAngle = clamp(H.dot(N), 0);
+        float specAngle = clamp(H.dot(N), 0); // TODO: should I use H•N?
         specular = pow(specAngle, sha->get_phong_coefficient());
     }
 
@@ -452,8 +482,16 @@ Vector3f Ray::get_intensity(
     Vector3f diff = sha->get_diffuse_coefficient() * lambertian * *sha->get_diffuse_colour();
     Vector3f spec = sha->get_specular_coefficient() * specular * *sha->get_specular_colour();
 
-    Vector3f intensity = diff;
-    if (!global) intensity += amb + spec;
+    Vector3f intensity;
+
+    if (!global) {
+        intensity = amb + spec;
+
+        if (!local_shadow) intensity += diff;
+    }
+    else {
+        intensity = diff;
+    }
 
     // Clamping each intensity value between 0 and 1
     intensity.x() = clamp(intensity.x(), 0, 1);
@@ -477,7 +515,7 @@ Vector3f Ray::get_average_intensity(
         vector<Shape*> all_shapes,
         vector<Light*> all_lights,
         bool global) {
-    Vector3f intensity(0, 0, 0);
+    Vector3f intensity(0, 0, 0); // Average intensity value (to be divided later)
 
     for (Light* l : all_lights) {
         if (l->get_type() == "Point") {
@@ -486,6 +524,7 @@ Vector3f Ray::get_average_intensity(
                 sha,
                 *dynamic_cast<Point *>(l)->get_origin(),
                 all_shapes,
+                all_lights,
                 global);
         }
         else if (l->get_type() == "Area") {
@@ -496,6 +535,7 @@ Vector3f Ray::get_average_intensity(
                 sha,
                 (*area->P3() - *area->P1()) / 2, // TODO: make sure to check for usecenter (if local)
                 all_shapes,
+                all_lights,
                 global);
         }
     }
@@ -511,6 +551,9 @@ Vector3f *Ray::get_hit() { return hit; }
 /// Hit point normal getter
 /// \return The normal at the hit point
 Vector3f *Ray::get_hit_normal() { return hit_normal; }
+/// Hit point Shape getter
+/// \return The Shape that the raycast hit
+Shape *Ray::get_hit_shape() { return hit_shape; }
 /// Does hit getter
 /// \return Whether the raycast hits the shape
 bool Ray::get_does_hit() { return does_hit; }

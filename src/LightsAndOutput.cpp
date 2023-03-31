@@ -118,11 +118,11 @@ bool Area::get_usecenter() { return usecenter; }
 /// \param u Up vector of the camera
 /// \param f FOV of the camera
 Camera::Camera(Vector3f *o, Vector3f *l, Vector3f *u, float f) :
-    origin(o),
-    look_at(l),
-    up(u),
-    side(new Vector3f(l->cross(*u).normalized())),
-    FOV(f) {
+        origin(o),
+        look_at(l),
+        up(u),
+        side(new Vector3f(l->cross(*u).normalized())),
+        FOV(f) {
     //*o /= 5; // TODO: should I do this?
 }
 
@@ -188,6 +188,7 @@ Image::Image(
         raysperpixel(rays),
         antialiasing(anti), globalillum(global),
         maxbounces(max), probterminate(terminate) {
+    // Setting the default colour of the background
     for (int i = 0; i < buffer->size(); i += 3) {
         buffer->at(i + 0) = globalillum ? 0 : background->x();
         buffer->at(i + 1) = globalillum ? 0 : background->y();
@@ -224,9 +225,6 @@ float Image::get_alpha(Camera* cam) const { return tan((cam->get_FOV() / 2) * (M
 /// Pixel size getter
 /// \return Pixel size of the Image
 float Image::get_pixel_size(Camera* cam) const { return (2 * get_alpha(cam)) / height; }
-/// Number of hits getter
-/// \return Number of total hits in the image
-int Image::get_number_of_hits() { return number_of_hits; }
 
 /// Ambient colour getter
 /// \return Ambient colour of the Image
@@ -254,15 +252,26 @@ bool Image::get_globalillum() { return globalillum; }
 /// \param only_display_hits Whether to display only the raycasts that hit in the console
 /// \param all_shapes List of shapes to include in the calculations
 void Image::raycast(
-    Camera *cam,
-    Image *img,
-    Shape *sha,
-    vector<Light*> all_lights,
-    bool verbose,
-    bool only_display_hits,
-    vector<Shape*> all_shapes) {
-    if (globalillum) global_raycast(cam, img, sha, all_lights, verbose, only_display_hits, all_shapes);
-    else local_raycast(cam, img, sha, all_lights, verbose, only_display_hits, all_shapes);
+        Camera *cam,
+        Image *img,
+        Shape *sha,
+        vector<Light*> all_lights,
+        vector<Shape*> all_shapes) {
+    // Making sure to raycast in the correct manner
+    if (globalillum) global_raycast(cam, img, sha, all_lights, all_shapes);
+    else local_raycast(cam, img, sha, all_lights, all_shapes);
+}
+
+/// Quick method to calculate the starting offset for the raycasts
+/// \param cam The Camera to raycast from
+/// \return The initial raycast position to offset from
+Vector3f Image::get_base(Camera* cam) {
+    float aspect = width / height;
+    float alpha = get_alpha(cam);
+
+    return *cam->get_origin() + *cam->get_look_at()
+        + (*cam->get_up() * alpha)
+        - (*cam->get_side() * alpha * aspect);
 }
 
 /// Single ray calculations that use the intensity from where they first hit
@@ -278,25 +287,16 @@ void Image::local_raycast(
         Image *img,
         Shape *sha,
         vector<Light*> all_lights,
-        bool verbose,
-        bool only_display_hits,
         vector<Shape*> all_shapes) {
-    float aspect = width / height;
-    float alpha = get_alpha(cam);
     float pixel_size = img->get_pixel_size(cam);
-
-    Vector3f base =
-        *cam->get_origin() + *cam->get_look_at()
-        + (*cam->get_up() * alpha)
-        - (*cam->get_side() * alpha * aspect);
+    Vector3f base = get_base(cam);
 
     int count = 0;
 
     // Iterating vertically first, then horizontally
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
-            int index = (3 * j * width) + (3 * i);
-
+            // Calculating each new outgoing ray
             Vector3f outgoing_ray =
                 base +
                 (*cam->get_up() * (-j * pixel_size + (pixel_size / 2))) +
@@ -305,20 +305,11 @@ void Image::local_raycast(
             // Creating and shooting the raycast
             Ray *ray = new Ray(*cam->get_origin(), outgoing_ray, sha, false);
 
-            // Printing the raycast information to the console
-            if (verbose && ((only_display_hits && ray->get_does_hit()) || !only_display_hits)) {
-                cout << "[" << ray->get_does_hit() << "] Raycast " << count << ": " <<
-                     ray->get_hit()->x() << " " <<
-                     ray->get_hit()->y() << " " <<
-                     ray->get_hit()->z() << " " << endl;
-            }
-
             // Saving the pixel information to the PPM buffer if it does hit
             if (ray->get_does_hit()) {
-                number_of_hits++;
-
                 Vector3f intensity = ray->get_average_intensity(ray->get_hit(), sha, all_shapes, all_lights, false);
 
+                int index = (3 * j * width) + (3 * i);
                 buffer->at(index + 0) = intensity.x();
                 buffer->at(index + 1) = intensity.y();
                 buffer->at(index + 2) = intensity.z();
@@ -331,7 +322,7 @@ void Image::local_raycast(
         }
     }
 
-    save_ppm(name, *buffer, width, height);
+    save_ppm(name, *buffer, width, height); // Saving to the PPM
 }
 
 /// Quick method to check if the global illumination bounces should terminate early
@@ -357,6 +348,7 @@ Vector3f get_new_bounce_direction(Vector3f o, Vector3f n) {
     float x = dist(rng);
     float y = dist(rng);
 
+    // Making sure the x and y are within the circle
     while (pow(x, 2) + pow(y, 2) > 1) {
         x = dist(rng);
         y = dist(rng);
@@ -364,8 +356,10 @@ Vector3f get_new_bounce_direction(Vector3f o, Vector3f n) {
 
     float z = sqrt(1 - pow(x, 2) - pow(y, 2));;
 
+    // Calculating the rotation to get from up to the hemisphere normal
     Matrix3f rotation = Quaternionf().setFromTwoVectors(Vector3f(0, 1, 0), n).toRotationMatrix();
 
+    // Rotating the new direction so it aligns with the normal
     return rotation * Vector3f(x, y, z); // TODO: is this correct?
 }
 
@@ -391,17 +385,9 @@ void Image::global_raycast(
         Image *img,
         Shape *sha,
         vector<Light*> all_lights,
-        bool verbose,
-        bool only_display_hits,
         vector<Shape*> all_shapes) {
-    float aspect = width / height;
-    float alpha = get_alpha(cam);
+    Vector3f base = get_base(cam);
     float pixel_size = img->get_pixel_size(cam);
-
-    Vector3f base =
-        *cam->get_origin() + *cam->get_look_at() +
-        (*cam->get_up() * alpha) -
-        (*cam->get_side() * alpha * aspect);
 
     Vector3f *last_hit, *last_normal, *last_dir;
 
@@ -409,6 +395,7 @@ void Image::global_raycast(
     int num_cells_y = 1;
     int num_rays = 1;
 
+    // Checking the raysperpixel to see what kind of stratification to use
     switch (raysperpixel.size()) {
         case 0:
             return;
@@ -427,7 +414,7 @@ void Image::global_raycast(
             break;
     }
 
-    int num_samples = num_cells_x * num_cells_y * num_rays;
+    int num_samples = num_cells_x * num_cells_y * num_rays; // Total number of samples that will be calculated
 
     random_device dev;
     mt19937 rng(dev());
@@ -435,25 +422,27 @@ void Image::global_raycast(
     // Iterating vertically first, then horizontally
     for (int j = 0; j < height; j++) {
         for (int i = 0; i < width; i++) {
-            int index = (3 * j * width) + (3 * i);
+            vector<Vector3f> all_sample_colours; // List of all colours generated from samples for this pixel
+            bool did_all_firsts_miss = true; // Whether all samples in this pixel first missed
 
-            vector<Vector3f> sample_colours;
-            bool did_all_firsts_miss = true;
-
+            // Looping through all the cells for this pixel
             for (int current_cell_x = 0; current_cell_x < num_cells_x; current_cell_x++) {
                 for (int current_cell_y = 0; current_cell_y < num_cells_y; current_cell_y++) {
+                    // Shooting a number of rays per cell
                     for (int current_ray = 0; current_ray < num_rays; current_ray++) {
-                        Vector3f average_colour(0, 0, 0);
+                        Vector3f average_cell_colour(0, 0, 0); // Average colour of this cell
 
-                        uniform_real_distribution<float> dist_x(0, 1 / (1 / num_cells_x));
-                        uniform_real_distribution<float> dist_y(0, 1 / (1 / num_cells_y));
+                        // Generating a new offset for the sample within the current cell
+                        uniform_real_distribution<float> dist_x(0, 1.0 / (1.0 / num_cells_x));
+                        uniform_real_distribution<float> dist_y(0, 1.0 / (1.0 / num_cells_y));
+                        Vector2f offset = Vector2f(dist_x(rng), dist_y(rng)); // Offset percentages (of one pixel)
 
-                        Vector2f offset = Vector2f(dist_x(rng), dist_y(rng));
-
+                        // Calculating each new outgoing ray + the offset
                         Vector3f initial_outgoing_ray = base +
                            (*cam->get_up() * ((-j + offset.y()) * pixel_size + (pixel_size / 2))) +
                            (*cam->get_side() * ((i + offset.x()) * pixel_size + (pixel_size / 2)));
 
+                        // Creating and shooting the initial raycast
                         Ray *ray = new Ray(
                             *cam->get_origin(),
                             initial_outgoing_ray,
@@ -461,53 +450,62 @@ void Image::global_raycast(
                             false
                         );
 
+                        // If the first ray hits, start bouncing
                         if (ray->get_does_hit()) {
-                            number_of_hits++;
-
                             did_all_firsts_miss = false;
 
+                            // Getting the hit point, normal of the hit, and incoming direction of the first ray
                             last_hit = new Vector3f(*ray->get_hit());
                             last_normal = new Vector3f(*ray->get_hit_normal());
                             last_dir = new Vector3f((*ray->get_hit() - *cam->get_origin()).normalized());
 
-                            average_colour += ray->get_average_intensity(last_hit, sha, all_shapes, all_lights, true);
+                            // Adding the intensity of the first hit
+                            average_cell_colour += ray->get_average_intensity(last_hit, sha, all_shapes, all_lights, true);
 
-                            int bounces = 0;
+                            int bounces = 0; // The current number of bounces
+                            // Whether to keep bouncing
                             bool keep_bouncing = bounces < maxbounces && check_probterminate(probterminate);
-                            bool last_bounce = false;
+                            bool last_bounce = false; // Whether this bounce is the last one that goes to the light
 
+                            // Whether the bounces haven't ended yet or if this is the last bounce
                             while (keep_bouncing || (!keep_bouncing && !last_bounce)) {
                                 bounces++;
 
+                                // Updating the bouncing booleans
                                 if (keep_bouncing)
                                     keep_bouncing = bounces < maxbounces && check_probterminate(probterminate);
                                 else last_bounce = true;
 
                                 Ray *bounce_ray;
-                                float min = 1000;
+                                float min = INT_MAX;
                                 Vector3f new_dir;
 
-                                if (last_bounce) {
+                                // If there are still more bounces to go, the new bounce direction is calculated
+                                if (!last_bounce) new_dir = get_new_bounce_direction(*last_hit, *last_normal);
+                                // If this is the last bounce, the direction goes to a random light
+                                else {
                                     uniform_int_distribution<int> bounce_dist(0, all_lights.size() - 1);
 
                                     Light *l = all_lights[bounce_dist(rng)];
                                     Vector3f light_pos;
 
+                                    // Checking whether the randomly-selected light is a Point or Area light
                                     if (l->get_type() == "Point") {
                                         light_pos = *dynamic_cast<Point*>(l)->get_origin();
                                     }
                                     else if (l->get_type() == "Area") {
                                         Area *area = dynamic_cast<Area*>(l);
-                                        light_pos = (*area->P3() - *area->P1()) / 2;
+                                        light_pos = (*area->P3() - *area->P1()) / 2; // Using the middle point of the area light
                                     }
 
                                     new_dir = (light_pos - *last_hit).normalized();
                                 }
-                                else new_dir = get_new_bounce_direction(*last_hit, *last_normal);
 
+                                // Once the direction has been found, it must be checked against all the geometry
                                 for (int k = 0; k < all_shapes.size(); k++) {
                                     Ray *temp_ray;
 
+                                    // Creating a new temporary ray for each geometry
                                     temp_ray = new Ray(
                                         *last_hit,
                                         new_dir,
@@ -515,20 +513,26 @@ void Image::global_raycast(
                                         true
                                     );
 
+                                    // Setting the bounce ray initially
+                                    // (in case nothing else hits)
                                     if (k == 0) bounce_ray = temp_ray;
 
+                                    // If the temporary ray does it, it's checked to see if it's the closest hit
                                     if (temp_ray->get_does_hit()) {
                                         float distance = (*temp_ray->get_hit() - *last_hit).norm();
 
                                         if (distance < min) {
+                                            // Deleting the previously set bounce ray
+                                            // (because we're going to replace it)
                                             if (k > 0) {
                                                 delete bounce_ray;
                                                 bounce_ray = NULL;
                                             }
 
                                             min = distance;
-                                            bounce_ray = temp_ray;
+                                            bounce_ray = temp_ray; // Setting the new bounce ray
                                         }
+                                        // Otherwise, deleting the temporary ray
                                         else {
                                             if (k > 0) {
                                                 delete temp_ray;
@@ -536,6 +540,7 @@ void Image::global_raycast(
                                             }
                                         }
                                     }
+                                    // Otherwise, deleting the temporary ray
                                     else {
                                         if (k > 0) {
                                             delete temp_ray;
@@ -544,13 +549,18 @@ void Image::global_raycast(
                                     }
                                 }
 
+                                // Temporarily saving the incoming direction of the last bounce ray
+                                // (so it doesn't get removed by the deletes below)
                                 Vector3f temp = *last_dir;
 
-                                delete last_dir;
-                                last_dir = NULL;
+                                // Saving the last bounce's direction
+                                // (it'll be used below for the attenuation calculation)
+                                if (bounce_ray->get_does_hit()) {
+                                    delete last_dir;
+                                    last_dir = NULL;
 
-                                if (bounce_ray->get_does_hit())
                                     last_dir = new Vector3f((*bounce_ray->get_hit() - temp).normalized());
+                                }
 
                                 delete last_hit;
                                 last_hit = NULL;
@@ -558,28 +568,37 @@ void Image::global_raycast(
                                 delete last_normal;
                                 last_normal = NULL;
 
+                                // If the new bounce does in fact hit something
                                 if (bounce_ray->get_does_hit()) {
+                                    // If this is the last bounce, that means that something's in the way
+                                    // (this sample will be in shadow)
                                     if (last_bounce) {
-                                        average_colour = Vector3f(0, 0, 0);
+                                        average_cell_colour = Vector3f(0, 0, 0);
                                         break;
                                     }
 
+                                    // Setting the new last hit and normal variables
                                     last_hit = new Vector3f(*bounce_ray->get_hit());
                                     last_normal = new Vector3f(*bounce_ray->get_hit_normal());
 
+                                    // Getting the diffuse colour of this bounce hit
                                     Vector3f diffuse_colour = *bounce_ray->get_hit_shape()->get_diffuse_colour();
 
-                                    average_colour =
+                                    // Multiplying the average cell colour by:
+                                    // the diffuse colour (dc), the attenuation factor, and the diffuse coefficient (kd)
+                                    average_cell_colour =
                                         Vector3f(
-                                            average_colour.x() * diffuse_colour.x(),
-                                            average_colour.y() * diffuse_colour.y(),
-                                            average_colour.z() * diffuse_colour.z())
+                                            average_cell_colour.x() * diffuse_colour.x(),
+                                            average_cell_colour.y() * diffuse_colour.y(),
+                                            average_cell_colour.z() * diffuse_colour.z())
                                         * get_cos_angle(-*last_dir, new_dir)
                                         * bounce_ray->get_hit_shape()->get_diffuse_coefficient();
                                 }
                                 else {
+                                    // If this is isn't the last bounce, this means it didn't hit anything
+                                    // (this sample shot off into space)
                                     if (!last_bounce) {
-                                        average_colour = Vector3f(0, 0, 0);
+                                        average_cell_colour = Vector3f(0, 0, 0);
                                         break;
                                     }
                                 }
@@ -587,6 +606,8 @@ void Image::global_raycast(
                                 delete bounce_ray;
                                 bounce_ray = NULL;
                             }
+
+                            // Deleting all of the bouncing variables after the bouncing has finished
 
                             delete last_hit;
                             last_hit = NULL;
@@ -597,27 +618,31 @@ void Image::global_raycast(
                             delete last_dir;
                             last_dir = NULL;
                         }
+                        // if the first rays doesn't hit, add { 0, 0, 0 } and move along
                         else {
-                            average_colour = Vector3f(0, 0, 0);
+                            average_cell_colour = Vector3f(0, 0, 0);
                         }
 
+                        // Deleting the first ray
                         delete ray;
                         ray = NULL;
 
-                        sample_colours.push_back(average_colour);
+                        all_sample_colours.push_back(average_cell_colour); // Adding the new average sample colour
                     }
                 }
             }
 
+            // If at least one of the samples did initially hit, we can calculate the colour
             if (!did_all_firsts_miss) {
                 Vector3f pixel_average(0, 0, 0);
 
-                for (Vector3f colour : sample_colours) {
+                for (Vector3f colour : all_sample_colours) {
                     pixel_average += colour;
                 }
 
-                pixel_average /= sample_colours.size();
+                pixel_average /= all_sample_colours.size(); // Getting an average of all the samples from this pixel
 
+                int index = (3 * j * width) + (3 * i);
                 buffer->at(index + 0) = pixel_average.x();
                 buffer->at(index + 1) = pixel_average.y();
                 buffer->at(index + 2) = pixel_average.z();
@@ -625,7 +650,7 @@ void Image::global_raycast(
         }
     }
 
-    save_ppm(name, *buffer, width, height);
+    save_ppm(name, *buffer, width, height); // Saving to the PPM
 }
 
 

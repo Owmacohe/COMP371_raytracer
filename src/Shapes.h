@@ -12,7 +12,7 @@ public:
     Shape(string, Vector3f*, Vector3f*, Vector3f*, float, float, float, float);
     ~Shape();
 
-    virtual string getType();
+    virtual string get_type();
     virtual Vector3f *get_ambient_colour(), *get_diffuse_colour(), *get_specular_colour();
     virtual float get_ambient_coefficient(), get_diffuse_coefficient(), get_specular_coefficient();
     virtual float get_phong_coefficient();

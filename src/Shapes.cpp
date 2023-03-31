@@ -36,7 +36,7 @@ Shape::~Shape() {
 
 /// Type getter
 /// \return The type of the shape
-string Shape::getType() { return type; }
+string Shape::get_type() { return type; }
 
 /// Ambient colour getter
 /// \return Ambient colour of the shape
@@ -79,19 +79,19 @@ float Shape::get_phong_coefficient() { return phong_coefficient; }
 /// \param phong_coe Phone coefficient of the shape
 /// \param n Normal for the triangle
 Triangle::Triangle(Vector3f *p1, Vector3f *p2, Vector3f *p3,
-            Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
-            float amb_coe, float diff_coe, float spec_coe,
-            float phong_coe,
-            Vector3f *n) :
-        Shape("Triangle",
-            new Vector3f(*amb_col),
-            new Vector3f(*diff_col),
-            new Vector3f(*spec_col),
-            amb_coe, diff_coe, spec_coe, phong_coe),
-        a(new Vector3f(*p1)),
-        b(new Vector3f(*p2)),
-        c(new Vector3f(*p3)),
-        normal(new Vector3f(*n)) { }
+        Vector3f *amb_col, Vector3f *diff_col, Vector3f *spec_col,
+        float amb_coe, float diff_coe, float spec_coe,
+        float phong_coe,
+        Vector3f *n) :
+    Shape("Triangle",
+        new Vector3f(*amb_col),
+        new Vector3f(*diff_col),
+        new Vector3f(*spec_col),
+        amb_coe, diff_coe, spec_coe, phong_coe),
+    a(new Vector3f(*p1)),
+    b(new Vector3f(*p2)),
+    c(new Vector3f(*p3)),
+    normal(new Vector3f(*n)) { }
 
 /// Triangle destructor
 Triangle::~Triangle() {
@@ -145,7 +145,9 @@ Rectangle::Rectangle(Vector3f *p1, Vector3f *p2, Vector3f *p3, Vector3f *p4,
         float phong_coe) :
     Shape("Rectangle", amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe),
     a(p1), b(p2), c(p3), d(p4) {
+    // Calculating the normal for this Rectangle, then setting two new Triangles with the normal
     normal = new Vector3f(-(*b - *a).cross(*c - *a).normalized());
+    // t2 has to use points { a, c, d } to work for the JSONs
     t1 = new Triangle(a, b, c, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, normal);
     t2 = new Triangle(a, c, d, amb_col, diff_col, spec_col, amb_coe, diff_coe, spec_coe, phong_coe, normal);
 }

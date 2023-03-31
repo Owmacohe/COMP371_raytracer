@@ -51,7 +51,7 @@ public:
     Ray(Vector3f, Vector3f, Shape*, bool);
     ~Ray();
 
-    Vector3f get_intensity(Vector3f*, Shape*, Vector3f, vector<Shape*>, bool);
+    Vector3f get_intensity(Vector3f*, Shape*, Vector3f, vector<Shape*>, vector<Light*>, bool);
     Vector3f get_average_intensity(Vector3f*, Shape*, vector<Shape*>, vector<Light*>, bool);
 
     Vector3f *get_hit(), *get_hit_normal();
@@ -63,5 +63,6 @@ private:
     bool hit_sphere(Vector3f, Vector3f, Sphere*);
 
     Vector3f *hit, *hit_normal;
+    Shape *hit_shape;
     bool does_hit;
 };

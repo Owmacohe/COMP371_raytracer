@@ -62,23 +62,22 @@ public:
     string get_name();
     int get_width() const, get_height() const;
     float get_alpha(Camera*) const, get_pixel_size(Camera*) const;
-    int get_number_of_hits();
 
     Vector3f *get_ambient(), *get_background();
 
     vector<int> get_raysperpixel();
     bool get_antialiasing(), get_globalillum();
 
-    void raycast(Camera*, Image*, Shape*, vector<Light*>, bool, bool, vector<Shape*>);
+    Vector3f get_base(Camera*);
+    void raycast(Camera*, Image*, Shape*, vector<Light*>, vector<Shape*>);
 private:
-    void local_raycast(Camera*, Image*, Shape*, vector<Light*>, bool, bool, vector<Shape*>);
-    void global_raycast(Camera*, Image*, Shape*, vector<Light*>, bool, bool, vector<Shape*>);
+    void local_raycast(Camera*, Image*, Shape*, vector<Light*>, vector<Shape*>);
+    void global_raycast(Camera*, Image*, Shape*, vector<Light*>, vector<Shape*>);
 
     vector<double> *buffer;
 
     string name;
     int width, height;
-    int number_of_hits;
 
     Vector3f *ambient;
     Vector3f *background;
