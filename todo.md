@@ -1,5 +1,5 @@
 ## Camera
-- Camera positioning (try odd canvasses?)
+- ~~Camera positioning (try odd canvasses?)~~
 
 ## Global illumination
 - ~~Sphere illumination in darkness (ignore very close bounces)~~

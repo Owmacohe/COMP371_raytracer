@@ -104,33 +104,38 @@ vector<Shape*> RayTracer::parse_geometry() {
             cout << "Fatal error: geometry should always contain a type!!!" << endl;
         }
 
-        if (type == "rectangle") {
-            cout << "RECTANGLE" << endl;
+        bool visible = true;
+        if ((*itr).contains("visible")) visible = (*itr)["visible"];
 
-            temp.push_back(new Rectangle(
-                new Vector3f((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
-                new Vector3f((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
-                new Vector3f((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
-                new Vector3f((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
-                new Vector3f((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
-                new Vector3f((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
-                new Vector3f((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
-                (*itr)["ka"], (*itr)["kd"], (*itr)["ks"],
-                (*itr)["pc"]
-            ));
-        }
-        else if (type == "sphere") {
-            cout << "SPHERE" << endl;
+        if (visible) {
+            if (type == "rectangle") {
+                cout << "RECTANGLE" << endl;
 
-            temp.push_back(new Sphere(
-                new Vector3f((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
-                (*itr)["radius"].get<float>(),
-                new Vector3f((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
-                new Vector3f((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
-                new Vector3f((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
-                (*itr)["ka"], (*itr)["kd"], (*itr)["ks"],
-                (*itr)["pc"]
-            ));
+                temp.push_back(new Rectangle(
+                    new Vector3f((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
+                    new Vector3f((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
+                    new Vector3f((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
+                    new Vector3f((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
+                    new Vector3f((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
+                    new Vector3f((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
+                    new Vector3f((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
+                    (*itr)["ka"], (*itr)["kd"], (*itr)["ks"],
+                    (*itr)["pc"]
+                ));
+            }
+            else if (type == "sphere") {
+                cout << "SPHERE" << endl;
+
+                temp.push_back(new Sphere(
+                    new Vector3f((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
+                    (*itr)["radius"].get<float>(),
+                    new Vector3f((*itr)["ac"][0], (*itr)["ac"][1], (*itr)["ac"][2]),
+                    new Vector3f((*itr)["dc"][0], (*itr)["dc"][1], (*itr)["dc"][2]),
+                    new Vector3f((*itr)["sc"][0], (*itr)["sc"][1], (*itr)["sc"][2]),
+                    (*itr)["ka"], (*itr)["kd"], (*itr)["ks"],
+                    (*itr)["pc"]
+                ));
+            }
         }
     }
 
@@ -153,27 +158,32 @@ vector<Light*> RayTracer::parse_lights() {
             cout << "Fatal error: geometry should always contain a type!!!" << endl;
         }
 
-        if (type == "point") {
-            cout << "POINT LIGHT" << endl;
+        bool use = true;
+        if ((*itr).contains("use")) use = (*itr)["use"];
 
-            temp.push_back(new Point(
-                new Vector3f((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
-                new Vector3f((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
-                new Vector3f((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2])
-            ));
-        }
-        else if (type == "area") {
-            cout << "AREA LIGHT" << endl;
+        if (use) {
+            if (type == "point") {
+                cout << "POINT LIGHT" << endl;
 
-            temp.push_back(new Area(
-                new Vector3f((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
-                new Vector3f((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
-                new Vector3f((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
-                new Vector3f((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
-                new Vector3f((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
-                new Vector3f((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2]),
-                (*itr)["n"], (*itr)["usecenter"]
-            ));
+                temp.push_back(new Point(
+                    new Vector3f((*itr)["centre"][0], (*itr)["centre"][1], (*itr)["centre"][2]),
+                    new Vector3f((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
+                    new Vector3f((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2])
+                ));
+            }
+            else if (type == "area") {
+                cout << "AREA LIGHT" << endl;
+
+                temp.push_back(new Area(
+                    new Vector3f((*itr)["p1"][0], (*itr)["p1"][1], (*itr)["p1"][2]),
+                    new Vector3f((*itr)["p2"][0], (*itr)["p2"][1], (*itr)["p2"][2]),
+                    new Vector3f((*itr)["p3"][0], (*itr)["p3"][1], (*itr)["p3"][2]),
+                    new Vector3f((*itr)["p4"][0], (*itr)["p4"][1], (*itr)["p4"][2]),
+                    new Vector3f((*itr)["id"][0], (*itr)["id"][1], (*itr)["id"][2]),
+                    new Vector3f((*itr)["is"][0], (*itr)["is"][1], (*itr)["is"][2]),
+                    (*itr)["n"], (*itr)["usecenter"]
+                ));
+            }
         }
     }
 

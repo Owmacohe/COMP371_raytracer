@@ -248,9 +248,10 @@ Vector3f Image::get_base(Camera* cam) {
     float alpha = get_alpha(cam);
     float aspect = width / height;
 
-    return *cam->get_origin() + *cam->get_look_at()
-        + (*cam->get_up() * alpha)
-        - (*cam->get_side() * alpha * aspect);
+    Vector3f top = *cam->get_up() * alpha;
+    Vector3f right = *cam->get_side() * alpha * aspect;
+
+    return *cam->get_origin() + *cam->get_look_at() + top - right;
 }
 
 /// Quick method to check if the global illumination bounces should terminate early
@@ -370,14 +371,16 @@ void Image::raycast(
                         }
 
                         // Calculating each new outgoing ray + the offset
-                        Vector3f initial_outgoing_ray = base
+                        Vector3f initial_outgoing_position = base
                             - (*cam->get_up() * ((j + offset.y()) * pixel_size + (pixel_size / 2)))
                             + (*cam->get_side() * ((i + offset.x()) * pixel_size + (pixel_size / 2)));
+
+                        Vector3f initial_outgoing_direction = (initial_outgoing_position - *cam->get_origin()).normalized();
 
                         // Creating and shooting the initial raycast
                         Ray *ray = new Ray(
                             *cam->get_origin(),
-                            initial_outgoing_ray,
+                            initial_outgoing_direction,
                             sha
                         );
 
