@@ -21,6 +21,7 @@ class Rectangle;
 class Sphere;
 
 class Light;
+class Area;
 class Output;
 
 class RayTracer {
@@ -45,13 +46,15 @@ bool is_on_right(Vector3f, Vector3f, Vector3f, Vector3f);
 Vector3f project_to_plane(Vector3f, Vector3f, Vector3f, Vector3f);
 float clamp(float, float);
 float clamp(float, float, float);
+Vector3f clamp(Vector3f, float, float);
 
 class Ray {
 public:
-    Ray(Vector3f, Vector3f, Shape*, bool);
+    Ray(Vector3f, Vector3f, Shape*);
     ~Ray();
 
-    Vector3f get_intensity(Vector3f*, Shape*, Vector3f, vector<Shape*>, vector<Light*>, bool);
+    Vector3f get_intensity(Vector3f*, Shape*, Vector3f, vector<Shape*>, bool);
+    Vector3f get_area_intensity(Vector3f*, Shape*, Area*, vector<Shape*>, bool);
     Vector3f get_average_intensity(Vector3f*, Shape*, vector<Shape*>, vector<Light*>, bool);
 
     Vector3f *get_hit(), *get_hit_normal();

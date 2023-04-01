@@ -247,8 +247,7 @@ vector<Output*> RayTracer::parse_outputs() {
 /// \param origin Where the ray strats from
 /// \param dir The direction of the ray
 /// \param sha Shape to raycast at
-/// \param global Whether or not to use global illumination
-Ray::Ray(Vector3f origin, Vector3f dir, Shape *sha, bool global) {
+Ray::Ray(Vector3f origin, Vector3f dir, Shape *sha) {
     dir = dir.normalized(); // Making sure the direction is normalized
 
     // Checking to see which shape we are raycasting at, so we can hit it properly
@@ -398,6 +397,19 @@ float clamp(float f, float min, float max) {
     return f;
 }
 
+/// Free method to clamp a vector between a minimum and maximum
+/// \param v Vector to clamp
+/// \param min Minimum amount for the vector
+/// \param max Maximum amount for the vector
+/// \return The clamped vector
+Vector3f clamp(Vector3f v, float min, float max) {
+    v.x() = clamp(v.x(), 0, 1);
+    v.y() = clamp(v.y(), 0, 1);
+    v.z() = clamp(v.z(), 0, 1);
+
+    return v;
+}
+
 /// Method to calculate the intensity for a particular raycast for a single light
 /// \param hit The hit point for the raycast
 /// \param sha The shape being hit
@@ -410,45 +422,21 @@ Vector3f Ray::get_intensity(
         Shape *sha,
         Vector3f poi,
         vector<Shape*> all_shapes,
-        vector<Light*> all_lights,
         bool global) {
     bool local_shadow = false;
 
     if (!global) {
         for (Shape* s : all_shapes) {
-            for (Light* l : all_lights) {
-                if (s != sha) {
-                    Ray *ray;
+            if (s != sha) {
+                Ray *ray = new Ray(*hit, poi - *hit, s);
 
-                    if (l->get_type() == "Point") {
-                        ray = new Ray(
-                            *hit,
-                            *dynamic_cast<Point*>(l)->get_origin() - *hit,
-                            s,
-                            false
-                        );
-                    }
-                    else if (l->get_type() == "Area") {
-                        Area *area = dynamic_cast<Area*>(l);
+                local_shadow = ray->get_does_hit();
 
-                        ray = new Ray(
-                            *hit,
-                            ((*area->P3() - *area->P1()) / 2) - *hit,
-                            s,
-                            false
-                        );
-                    }
+                delete ray;
+                ray = NULL;
 
-                    local_shadow = ray->get_does_hit(); // TODO: where should I utilize this?
-
-                    delete ray;
-                    ray = NULL;
-
-                    if (local_shadow) break;
-                }
+                if (local_shadow) break;
             }
-
-            if (local_shadow) break;
         }
     }
 
@@ -465,27 +453,26 @@ Vector3f Ray::get_intensity(
     Vector3f L = (poi - *hit).normalized(); // Direction from the hit to the light source
 
     float lambertian = clamp(N.dot(L), 0); // Setting up Lambert's cosine law
-    float specular;
+    float specular = 0;
 
     if (lambertian > 0) {
-        Vector3f R = (-L) - 2 * ((-L).dot(N)) * N;
+        //Vector3f R = (-L) - 2 * ((-L).dot(N)) * N;
         Vector3f V = (-*hit).normalized();
         Vector3f H = (L + V) / (L + V).norm();
 
         // Getting the specular
-        float specAngle = clamp(H.dot(N), 0); // TODO: should I use H•N?
+        float specAngle = clamp(H.dot(N), 0);
         specular = pow(specAngle, sha->get_phong_coefficient());
     }
 
     // Getting the three light/colour values
-    Vector3f amb = sha->get_ambient_coefficient() * *sha->get_ambient_colour();
     Vector3f diff = sha->get_diffuse_coefficient() * lambertian * *sha->get_diffuse_colour();
     Vector3f spec = sha->get_specular_coefficient() * specular * *sha->get_specular_colour();
 
     Vector3f intensity;
 
     if (!global) {
-        intensity = amb + spec;
+        intensity = spec;
 
         if (!local_shadow) intensity += diff;
     }
@@ -493,12 +480,41 @@ Vector3f Ray::get_intensity(
         intensity = diff;
     }
 
-    // Clamping each intensity value between 0 and 1
-    intensity.x() = clamp(intensity.x(), 0, 1);
-    intensity.y() = clamp(intensity.y(), 0, 1);
-    intensity.z() = clamp(intensity.z(), 0, 1);
-
     return intensity;
+}
+
+/// Method to get the sampled average light from the area light
+/// \param hit The hit point for the raycast
+/// \param sha The shape being hit
+/// \param area The area light source
+/// \param all_shapes A list of all the shapes in the scene
+/// \param global Whether or not the scene uses global illumination
+/// \return The average intensity of the area light
+Vector3f Ray::get_area_intensity(
+        Vector3f *hit,
+        Shape *sha,
+        Area *area,
+        vector<Shape*> all_shapes,
+        bool global) {
+    Vector3f average(0, 0, 0);
+
+    float cell_size = 1.0 / area->get_n();
+
+    Vector3f increment_x = (*area->P2() - *area->P1()).normalized() * cell_size;
+    Vector3f increment_y = (*area->P3() - *area->P1()).normalized() * cell_size;
+
+    for (int i = 0; i < area->get_n(); i++)
+        for (int j = 0; j < area->get_n(); j++)
+            average += get_intensity(
+                hit,
+                sha,
+                *area->P1() + ((i + (cell_size / 2)) * increment_x) + ((j + (cell_size / 2)) * increment_y),
+                all_shapes,
+                global);
+
+    average /= pow(area->get_n(), 2);
+
+    return average;
 }
 
 /// Gets the average intensity from all lights at a particular point
@@ -515,6 +531,7 @@ Vector3f Ray::get_average_intensity(
         vector<Shape*> all_shapes,
         vector<Light*> all_lights,
         bool global) {
+    Vector3f ambient = sha->get_ambient_coefficient() * *sha->get_ambient_colour();
     Vector3f intensity(0, 0, 0); // Average intensity value (to be divided later)
 
     for (Light* l : all_lights) {
@@ -524,25 +541,26 @@ Vector3f Ray::get_average_intensity(
                 sha,
                 *dynamic_cast<Point *>(l)->get_origin(),
                 all_shapes,
-                all_lights,
                 global);
         }
         else if (l->get_type() == "Area") {
             Area *area = dynamic_cast<Area *>(l);
 
-            intensity += get_intensity(
-                hit,
-                sha,
-                (*area->P3() - *area->P1()) / 2, // TODO: make sure to check for usecenter (if local)
-                all_shapes,
-                all_lights,
-                global);
+            if (!global && !area->get_usecenter()) {
+                intensity += get_area_intensity(hit, sha, area, all_shapes, global);
+            }
+            else {
+                intensity += get_intensity(
+                    hit,
+                    sha,
+                    (*area->P3() - *area->P1()) / 2,
+                    all_shapes,
+                    global);
+            }
         }
     }
 
-    intensity /= all_lights.size();
-
-    return intensity;
+    return clamp(global ? intensity : ambient + intensity, 0, 1);
 }
 
 /// Hit point getter

@@ -71,9 +71,6 @@ public:
     Vector3f get_base(Camera*);
     void raycast(Camera*, Image*, Shape*, vector<Light*>, vector<Shape*>);
 private:
-    void local_raycast(Camera*, Image*, Shape*, vector<Light*>, vector<Shape*>);
-    void global_raycast(Camera*, Image*, Shape*, vector<Light*>, vector<Shape*>);
-
     vector<double> *buffer;
 
     string name;
