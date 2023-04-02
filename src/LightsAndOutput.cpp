@@ -67,12 +67,12 @@ Vector3f *Point::get_origin() { return origin; }
 /// \param diff_int Diffuse intensity of the light
 /// \param spec_int Specular intensity of the light
 /// \param stratified_n Stratification array
-/// \param center Whether or not to use the centre of the light for calculations
+/// \param use Whether or not to use the centre of the light for calculations
 Area::Area(
     Vector3f* a, Vector3f* b, Vector3f* c, Vector3f* d,
-    Vector3f *diff_int, Vector3f *spec_int, int stratified_n, bool center) :
+    Vector3f *diff_int, Vector3f *spec_int, int stratified_n, bool use) :
     Light("Area", diff_int, spec_int),
-    p1(a), p2(b), p3(c), p4(d), n(stratified_n), usecenter(center) { }
+    p1(a), p2(b), p3(c), p4(d), center(new Vector3f(*a + (*c - *a) / 2)), n(stratified_n), usecenter(use) { }
 
 /// Area light constructor
 Area::~Area() {
@@ -87,6 +87,9 @@ Area::~Area() {
 
     delete p4;
     p4 = NULL;
+
+    delete center;
+    center = NULL;
 }
 
 /// First point getter
@@ -101,6 +104,9 @@ Vector3f *Area::P3() { return p3; }
 /// Fourth point getter
 /// \return Fourth point
 Vector3f *Area::P4() { return p4; }
+/// Center getter
+/// \return The center point of the light
+Vector3f *Area::get_center() { return center; }
 /// Stratification array getter
 /// \return Stratification array
 int Area::get_n() { return n; }
@@ -182,6 +188,7 @@ Image::Image(
         name(n),
         width(w), height(h),
         buffer(new vector<double>(3 * w * h)),
+        buffer_z(new vector<double>(w * h)),
         ambient(amb), background(back),
         raysperpixel(rays),
         antialiasing(anti), globalillum(global),
@@ -192,12 +199,18 @@ Image::Image(
         buffer->at(i + 1) = globalillum ? 0 : background->y();
         buffer->at(i + 2) = globalillum ? 0 : background->z();
     }
+
+    for (int j = 0; j < buffer_z->size(); j++)
+        buffer_z->at(j) = INT_MAX;
 }
 
 /// Image destructor
 Image::~Image() {
     delete buffer;
     buffer = NULL;
+
+    delete buffer_z;
+    buffer_z = NULL;
 
     delete ambient;
     ambient = NULL;
@@ -269,7 +282,7 @@ bool check_probterminate(float probterminate) {
 /// \param o Origin of the bounce
 /// \param n Normal of the hemisphere at the bounce
 /// \return The new bounce direction
-Vector3f get_new_bounce_direction(Vector3f o, Vector3f n) {
+Vector3f get_new_bounce_direction(Vector3f o, Vector3f n) { // TODO: I don't think this is correct...
     random_device dev;
     mt19937 rng(dev());
     uniform_real_distribution<float> dist(-1, 1);
@@ -354,6 +367,7 @@ void Image::raycast(
         for (int i = 0; i < width; i++) {
             vector<Vector3f> all_sample_colours; // List of all colours generated from samples for this pixel
             bool did_all_firsts_miss = true; // Whether all samples in this pixel first missed
+            Vector3f average_first_ray_hit(0, 0, 0);
 
             // Looping through all the cells for this pixel
             for (int current_cell_x = 0; current_cell_x < num_cells_x; current_cell_x++) {
@@ -386,6 +400,8 @@ void Image::raycast(
 
                         // If the first ray hits, start bouncing
                         if (ray->get_does_hit()) {
+                            average_first_ray_hit += *ray->get_hit();
+
                             did_all_firsts_miss = false;
 
                             // Getting the hit point, normal of the hit, and incoming direction of the first ray
@@ -579,18 +595,27 @@ void Image::raycast(
 
             // If at least one of the samples did initially hit, we can calculate the colour
             if (!did_all_firsts_miss) {
-                Vector3f pixel_average(0, 0, 0);
+                average_first_ray_hit /= num_samples;
+                float camera_to_hit = (average_first_ray_hit - *cam->get_origin()).norm();
 
-                for (Vector3f colour : all_sample_colours) {
-                    pixel_average += colour;
+                int buffer_z_index = (j * width) + i;
+
+                if (camera_to_hit < buffer_z->at(buffer_z_index)) {
+                    buffer_z->at(buffer_z_index) = camera_to_hit;
+
+                    Vector3f pixel_average(0, 0, 0);
+
+                    for (Vector3f colour : all_sample_colours) {
+                        pixel_average += colour;
+                    }
+
+                    pixel_average /= all_sample_colours.size(); // Getting an average of all the samples from this pixel
+
+                    int buffer_index = (3 * j * width) + (3 * i);
+                    buffer->at(buffer_index + 0) = pixel_average.x();
+                    buffer->at(buffer_index + 1) = pixel_average.y();
+                    buffer->at(buffer_index + 2) = pixel_average.z();
                 }
-
-                pixel_average /= all_sample_colours.size(); // Getting an average of all the samples from this pixel
-
-                int index = (3 * j * width) + (3 * i);
-                buffer->at(index + 0) = pixel_average.x();
-                buffer->at(index + 1) = pixel_average.y();
-                buffer->at(index + 2) = pixel_average.z();
             }
         }
     }

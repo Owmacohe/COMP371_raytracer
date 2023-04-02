@@ -434,13 +434,17 @@ Vector3f Ray::get_intensity(
         vector<Shape*> all_shapes,
         bool global) {
     bool local_shadow = false;
+    Vector3f to_light = poi - *hit;
 
     if (!global) {
         for (Shape* s : all_shapes) {
             if (s != sha) {
                 Ray *ray = new Ray(*hit, poi - *hit, s);
 
-                local_shadow = ray->get_does_hit();
+                if (ray->get_does_hit())
+                    local_shadow = to_light.norm() > (*ray->hit - *hit).norm();
+                else
+                    local_shadow = false;
 
                 delete ray;
                 ray = NULL;
@@ -500,7 +504,7 @@ Vector3f Ray::get_intensity(
 /// \param all_shapes A list of all the shapes in the scene
 /// \param global Whether or not the scene uses global illumination
 /// \return The average intensity of the area light
-Vector3f Ray::get_area_intensity(
+Vector3f Ray::get_area_intensity( // TODO: weird results when n > 1
         Vector3f *hit,
         Shape *sha,
         Area *area,
@@ -563,7 +567,7 @@ Vector3f Ray::get_average_intensity(
                 intensity += get_intensity(
                     hit,
                     sha,
-                    (*area->P3() - *area->P1()) / 2,
+                    *area->get_center(),
                     all_shapes,
                     global);
             }

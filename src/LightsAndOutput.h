@@ -29,11 +29,11 @@ public:
     Area(Vector3f*, Vector3f*, Vector3f*, Vector3f*, Vector3f*, Vector3f*, int, bool);
     ~Area();
 
-    Vector3f *P1(), *P2(), *P3(), *P4();
+    Vector3f *P1(), *P2(), *P3(), *P4(), *get_center();
     int get_n();
     bool get_usecenter();
 private:
-    Vector3f *p1, *p2, *p3, *p4;
+    Vector3f *p1, *p2, *p3, *p4, *center;
     int n;
     bool usecenter;
 };
@@ -72,6 +72,7 @@ public:
     void raycast(Camera*, Image*, Shape*, vector<Light*>, vector<Shape*>);
 private:
     vector<double> *buffer;
+    vector<double> *buffer_z;
 
     string name;
     int width, height;
