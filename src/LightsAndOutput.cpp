@@ -195,9 +195,9 @@ Image::Image(
         maxbounces(max), probterminate(terminate) {
     // Setting the default colour of the background
     for (int i = 0; i < buffer->size(); i += 3) {
-        buffer->at(i + 0) = globalillum ? 0 : background->x();
-        buffer->at(i + 1) = globalillum ? 0 : background->y();
-        buffer->at(i + 2) = globalillum ? 0 : background->z();
+        buffer->at(i + 0) = background->x();
+        buffer->at(i + 1) = background->y();
+        buffer->at(i + 2) = background->z();
     }
 
     for (int j = 0; j < buffer_z->size(); j++)
@@ -282,27 +282,21 @@ bool check_probterminate(float probterminate) {
 /// \param o Origin of the bounce
 /// \param n Normal of the hemisphere at the bounce
 /// \return The new bounce direction
-Vector3f get_new_bounce_direction(Vector3f o, Vector3f n) { // TODO: I don't think this is correct...
+Vector3f get_new_bounce_direction(Vector3f o, Vector3f n) {
     random_device dev;
     mt19937 rng(dev());
     uniform_real_distribution<float> dist(-1, 1);
 
-    float x = dist(rng);
-    float y = dist(rng);
+    while (true) {
+        Vector3f random_point = Vector3f(dist(rng), dist(rng), dist(rng));
 
-    // Making sure the x and y are within the circle
-    while (pow(x, 2) + pow(y, 2) > 1) {
-        x = dist(rng);
-        y = dist(rng);
+        if (random_point.norm() > 1) continue;
+
+        Vector3f random_ray = (random_point - o).normalized();
+
+        if (random_ray.dot(o) > 0) return random_point;
+        else return -random_point;
     }
-
-    float z = sqrt(1 - pow(x, 2) - pow(y, 2));;
-
-    // Calculating the rotation to get from up to the hemisphere normal
-    Matrix3f rotation = Quaternionf().setFromTwoVectors(Vector3f(0, 1, 0), n).toRotationMatrix();
-
-    // Rotating the new direction so it aligns with the normal
-    return rotation * Vector3f(x, y, z);
 }
 
 /// Determines the cosine of the angle between an incoming and outgoing vector
@@ -435,15 +429,15 @@ void Image::raycast(
                                     else last_bounce = true;
 
                                     Vector3f new_dir;
+                                    Vector3f light_pos;
 
                                     // If there are still more bounces to go, the new bounce direction is calculated
                                     if (!last_bounce) new_dir = get_new_bounce_direction(*last_hit, *last_normal);
-                                        // If this is the last bounce, the direction goes to a random light
+                                    // If this is the last bounce, the direction goes to a random light
                                     else {
                                         uniform_int_distribution<int> bounce_dist(0, all_lights.size() - 1);
 
                                         Light *l = all_lights[bounce_dist(rng)];
-                                        Vector3f light_pos;
 
                                         // Checking whether the randomly-selected light is a Point or Area light
                                         if (l->get_type() == "Point") {
@@ -451,7 +445,9 @@ void Image::raycast(
                                         }
                                         else if (l->get_type() == "Area") {
                                             Area *area = dynamic_cast<Area*>(l);
-                                            light_pos = (*area->P3() - *area->P1()) / 2; // Using the middle point of the area light
+
+                                            // Using the middle point of the area light
+                                            light_pos = *area->P1() + (*area->P3() - *area->P1()) / 2;
                                         }
 
                                         new_dir = (light_pos - *last_hit).normalized();
@@ -510,7 +506,9 @@ void Image::raycast(
 
                                     // Temporarily saving the incoming direction of the last bounce ray
                                     // (so it doesn't get removed by the deletes below)
-                                    Vector3f temp = *last_dir;
+                                    Vector3f temp_dir = *last_dir;
+
+                                    Vector3f temp_origin = *last_hit;
 
                                     // Saving the last bounce's direction
                                     // (it'll be used below for the attenuation calculation)
@@ -518,7 +516,7 @@ void Image::raycast(
                                         delete last_dir;
                                         last_dir = NULL;
 
-                                        last_dir = new Vector3f((*bounce_ray->get_hit() - temp).normalized());
+                                        last_dir = new Vector3f((*bounce_ray->get_hit() - temp_dir).normalized());
                                     }
 
                                     delete last_hit;
@@ -532,7 +530,15 @@ void Image::raycast(
                                         // If this is the last bounce, that means that something's in the way
                                         // (this sample will be in shadow)
                                         if (last_bounce) {
-                                            average_cell_colour = Vector3f(0, 0, 0);
+                                            float hit_distance = (*bounce_ray->get_hit() - temp_origin).norm();
+                                            float light_distance = (light_pos - temp_origin).norm();
+
+                                            if (hit_distance < light_distance)
+                                                average_cell_colour = Vector3f(0, 0, 0);
+
+                                            delete bounce_ray;
+                                            bounce_ray = NULL;
+
                                             break;
                                         }
 
@@ -559,6 +565,10 @@ void Image::raycast(
                                         // (this sample shot off into space)
                                         if (!last_bounce) {
                                             average_cell_colour = Vector3f(0, 0, 0);
+
+                                            delete bounce_ray;
+                                            bounce_ray = NULL;
+
                                             break;
                                         }
                                     }

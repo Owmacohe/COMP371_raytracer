@@ -324,7 +324,7 @@
             "p4":[213, 540,-227],
             "id":[1, 1, 1],
             "is":[1, 1, 1],
-            "n": 1,
+            "n": 5,
             "usecenter": false
         },
         {
@@ -336,7 +336,7 @@
         }
     ],
     "output":[{
-        "filename":"cornell_box_al_area.ppm",
+        "filename":"cornell_box_al.ppm",
         "size":[500,500],
         "lookat":[0,0,-1],
         "up":[0,1,0],

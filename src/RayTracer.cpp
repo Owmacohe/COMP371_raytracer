@@ -476,6 +476,7 @@ Vector3f Ray::get_intensity(
 
         // Getting the specular
         float specAngle = clamp(H.dot(N), 0);
+        //float specAngle = clamp(R.dot(V), 0);
         specular = pow(specAngle, sha->get_phong_coefficient());
     }
 
@@ -512,17 +513,20 @@ Vector3f Ray::get_area_intensity( // TODO: weird results when n > 1
         bool global) {
     Vector3f average(0, 0, 0);
 
-    float cell_size = 1.0 / area->get_n();
+    Vector3f dir_x = (*area->P2() - *area->P1()).normalized();
+    Vector3f dir_y = (*area->P4() - *area->P1()).normalized();
 
-    Vector3f increment_x = (*area->P2() - *area->P1()).normalized() * cell_size;
-    Vector3f increment_y = (*area->P3() - *area->P1()).normalized() * cell_size;
+    float cell_size_x = ((*area->P2() - *area->P1()).norm()) / area->get_n();
+    float cell_size_y = ((*area->P4() - *area->P1()).norm()) / area->get_n();
 
     for (int i = 0; i < area->get_n(); i++)
         for (int j = 0; j < area->get_n(); j++)
             average += get_intensity(
                 hit,
                 sha,
-                *area->P1() + ((i + (cell_size / 2)) * increment_x) + ((j + (cell_size / 2)) * increment_y),
+                *area->P1()
+                    + (dir_x * (i * cell_size_x + (cell_size_x / 2)))
+                    + (dir_y * (j * cell_size_y + (cell_size_y / 2))),
                 all_shapes,
                 global);
 
